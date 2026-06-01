@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Genba & 5S Walk</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    :root{--navy:#0F172A;--teal:#0D9488;--amber:#D97706;--snow:#FAFAFA;--charcoal:#1E293B;
+      --surface:#F1F5F9;--border:#E5E7EB;--red:#EF4444;--green:#10B981;--muted:#64748B;}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:"IBM Plex Sans Thai",sans-serif;background:var(--snow);color:var(--charcoal)}
+    .app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+    header{background:var(--navy);color:#fff;padding:14px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:5}
+    header .bk{cursor:pointer;font-size:18px;width:22px}
+    header h1{font-size:16px;margin:0;font-weight:600;flex:1}
+    main{flex:1;padding:14px}
+    .tabs{display:flex;gap:6px;margin-bottom:12px}
+    .tab{flex:1;text-align:center;padding:8px;border:1px solid var(--border);border-radius:8px;background:#fff;font-size:13px;cursor:pointer}
+    .tab.active{background:var(--teal);color:#fff;border-color:var(--teal)}
+    .card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:10px;display:flex;gap:10px;cursor:pointer}
+    .card img{width:64px;height:64px;object-fit:cover;border-radius:8px;background:var(--surface);flex:none}
+    .card .ph{width:64px;height:64px;border-radius:8px;background:var(--surface);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:11px;flex:none}
+    .card .meta{flex:1;min-width:0}
+    .card .ttl{font-size:14px;font-weight:600;color:var(--navy)}
+    .card .sub{font-size:12px;color:var(--muted);margin-top:2px}
+    .badge{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:600;margin-top:4px}
+    .s-Open{background:#FEF2F2;color:var(--red)} .s-InProgress{background:#FFFBEB;color:var(--amber)}
+    .s-Done{background:#EFF6FF;color:#2563EB} .s-Closed{background:#ECFDF5;color:var(--green)}
+    label{display:block;font-size:13px;color:var(--muted);margin:12px 0 5px}
+    input,select,textarea{width:100%;padding:11px;font-size:15px;border:1px solid var(--border);border-radius:9px;outline:none;background:#fff}
+    textarea{min-height:74px;resize:vertical}
+    .btn{width:100%;margin-top:16px;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:600;cursor:pointer;color:#fff;background:var(--teal)}
+    .btn:disabled{opacity:.5}
+    .btn.sec{background:#fff;color:var(--teal);border:1px solid var(--teal)}
+    .btn.amber{background:var(--amber)} .btn.green{background:var(--green)}
+    .fab{position:fixed;right:calc(50% - 232px);bottom:18px;background:var(--teal);color:#fff;border:none;border-radius:999px;padding:14px 18px;font-size:15px;font-weight:700;box-shadow:0 4px 12px rgba(0,0,0,.2);cursor:pointer;z-index:6}
+    .thumbs{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .thumb{position:relative;width:70px;height:70px}
+    .thumb img{width:70px;height:70px;object-fit:cover;border-radius:8px}
+    .thumb .x{position:absolute;top:-6px;right:-6px;background:var(--red);color:#fff;border-radius:50%;width:20px;height:20px;line-height:20px;text-align:center;font-size:12px;cursor:pointer}
+    .add-photo{width:70px;height:70px;border:2px dashed var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:26px;cursor:pointer}
+    .gallery{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:6px}
+    .gallery img{width:100%;height:90px;object-fit:cover;border-radius:8px}
+    .sec-title{font-size:13px;font-weight:700;color:var(--navy);margin:14px 0 4px}
+    .row{font-size:14px;margin:6px 0}.row b{color:var(--navy)}
+    .err{color:var(--red);font-size:13px;margin-top:8px;text-align:center}
+    .empty{color:var(--muted);font-size:13px;text-align:center;padding:24px}
+    .spinner{border:3px solid var(--border);border-top-color:var(--teal);border-radius:50%;width:34px;height:34px;animation:spin 1s linear infinite;margin:24px auto}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .hidden{display:none}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header><span class="bk" id="back" onclick="goBack()">‹</span><h1 id="title">Genba & 5S Walk</h1></header>
+    <main id="main"><div class="spinner"></div></main>
+  </div>
+  <button class="fab hidden" id="fab" onclick="showForm()">+ New</button>
+
+  <script>
+    /* ===== CONFIG (same LIFF app + API as the super app) ===== */
+    var LIFF_ID = '2010250488-MyQiwlFp';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbyRJP-fDdUKFkAd5LmdBUXVM6wAb83i2leOueJ-d1Uw_czlnujTq-csD2WGGkkxcNWE/exec';
+    /* ======================================================== */
+
+    var idToken=null, BOOT=null, scope='all', beforeFiles=[], main=document.getElementById('main');
+
+    function api(action, extra){
+      return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:JSON.stringify(Object.assign({action:action,idToken:idToken},extra||{}))}).then(function(r){return r.json();});
+    }
+    function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+    function show(h){main.innerHTML=h;}
+    function setTitle(t){document.getElementById('title').textContent=t;}
+
+    /* image resize -> base64 (no prefix) */
+    function resize(file){return new Promise(function(res,rej){
+      var rd=new FileReader();rd.onload=function(e){var img=new Image();
+        img.onload=function(){var w=img.width,h=img.height,m=1280;
+          if(w>h&&w>m){h=Math.round(h*m/w);w=m;}else if(h>m){w=Math.round(w*m/h);h=m;}
+          var c=document.createElement('canvas');c.width=w;c.height=h;
+          c.getContext('2d').drawImage(img,0,0,w,h);
+          res(c.toDataURL('image/jpeg',0.7).split(',')[1]);};
+        img.onerror=rej;img.src=e.target.result;};
+      rd.onerror=rej;rd.readAsDataURL(file);});}
+
+    /* ---------- boot ---------- */
+    function boot(){
+      liff.init({liffId:LIFF_ID}).then(function(){
+        if(!liff.isLoggedIn()){liff.login();return;}
+        idToken=liff.getIDToken();
+        return api('genbaBootstrap').then(function(b){
+          if(!b||!b.ok){show('<div class="empty">'+((b&&b.error)||'No access to Genba')+'</div>');return;}
+          BOOT=b; renderList();
+        });
+      }).catch(function(e){show('<div class="empty">LINE error: '+e+'</div>');});
+    }
+
+    /* ---------- list ---------- */
+    function renderList(){
+      setTitle('Genba & 5S Walk'); document.getElementById('back').style.visibility='hidden';
+      document.getElementById('fab').classList.remove('hidden');
+      var tabs='<div class="tabs">'+
+        tab('all','All')+tab('mine','Mine')+tab('assigned','Assigned')+'</div>';
+      show(tabs+'<div id="list"><div class="spinner"></div></div>');
+      api('genbaList',{scope:scope}).then(function(r){
+        var el=document.getElementById('list');
+        if(!r.ok){el.innerHTML='<div class="empty">'+(r.error||'error')+'</div>';return;}
+        if(!r.findings.length){el.innerHTML='<div class="empty">No findings yet.</div>';return;}
+        el.innerHTML=r.findings.map(card).join('');
+      });
+    }
+    function tab(s,label){return '<div class="tab'+(scope===s?' active':'')+'" onclick="setScope(\''+s+'\')">'+label+'</div>';}
+    function setScope(s){scope=s;renderList();}
+    function card(f){
+      var img=f.cover?'<img src="'+esc(f.cover)+'" referrerpolicy="no-referrer">':'<div class="ph">no photo</div>';
+      var st=f.status.replace(/\s/g,'');
+      return '<div class="card" onclick="openFinding(\''+f.findingId+'\')">'+img+
+        '<div class="meta"><div class="ttl">'+esc(f.area)+'</div>'+
+        '<div class="sub">'+esc(f.category)+' · '+esc(f.severity)+' · '+esc(f.date)+'</div>'+
+        '<span class="badge s-'+st+'">'+esc(f.status)+'</span></div></div>';
+    }
+
+    /* ---------- new finding form ---------- */
+    function showForm(){
+      beforeFiles=[]; document.getElementById('fab').classList.add('hidden');
+      document.getElementById('back').style.visibility='visible'; setTitle('New Finding');
+      var opt=function(arr){return arr.map(function(x){return '<option>'+esc(x)+'</option>';}).join('');};
+      var emps='<option value="">— none —</option>'+BOOT.employees.map(function(e){return '<option value="'+esc(e.id)+'">'+esc(e.id)+' '+esc(e.name)+'</option>';}).join('');
+      show('<div class="card" style="display:block">'+
+        '<label>Area</label><select id="area">'+opt(BOOT.areas)+'</select>'+
+        '<label>5S / Safety category</label><select id="cat">'+opt(BOOT.categories)+'</select>'+
+        '<label>Severity</label><select id="sev"><option>Low</option><option>Medium</option><option>High</option></select>'+
+        '<label>Description</label><textarea id="desc" placeholder="What did you find?"></textarea>'+
+        '<label>Remark (optional) — e.g. repair / work-order no.</label><input id="remark" placeholder="WO-2026-0001">'+
+        '<label>Assign owner</label><select id="owner">'+emps+'</select>'+
+        '<label>Due date</label><input type="date" id="due">'+
+        '<label>Before photos (required, max '+BOOT.maxPhotos+')</label>'+
+        '<div class="thumbs" id="thumbs"></div>'+
+        '<div class="err" id="err"></div>'+
+        '<button class="btn" id="save" onclick="saveFinding()">Submit finding</button>'+
+        '</div>');
+      renderThumbs();
+    }
+    function renderThumbs(){
+      var t=document.getElementById('thumbs');var h='';
+      beforeFiles.forEach(function(f,i){h+='<div class="thumb"><img src="'+f.preview+'"><div class="x" onclick="rmFile('+i+')">×</div></div>';});
+      if(beforeFiles.length<BOOT.maxPhotos) h+='<div class="add-photo" onclick="pickFile()">+</div>';
+      t.innerHTML=h;
+    }
+    function pickFile(){
+      var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.capture='environment';
+      inp.onchange=function(){var file=inp.files[0];if(!file)return;
+        var rd=new FileReader();rd.onload=function(e){beforeFiles.push({file:file,preview:e.target.result});renderThumbs();};
+        rd.readAsDataURL(file);};
+      inp.click();
+    }
+    function rmFile(i){beforeFiles.splice(i,1);renderThumbs();}
+
+    function saveFinding(){
+      var err=document.getElementById('err');
+      if(!beforeFiles.length){err.textContent='At least 1 before photo is required.';return;}
+      var btn=document.getElementById('save');btn.disabled=true;btn.textContent='Saving…';
+      var payload={area:val('area'),category:val('cat'),severity:val('sev'),
+        description:val('desc'),remark:val('remark'),ownerEmpId:val('owner'),dueDate:val('due')};
+      api('genbaCreate',{payload:payload}).then(function(r){
+        if(!r.ok){btn.disabled=false;btn.textContent='Submit finding';err.textContent=r.error||r.reason||'error';return;}
+        uploadSequential(r.findingId,beforeFiles.slice(),'before',0,btn,err);
+      });
+    }
+    function uploadSequential(fid,files,phase,i,btn,err){
+      if(i>=files.length){renderList();return;}
+      btn.textContent='Uploading '+(i+1)+'/'+files.length+'…';
+      resize(files[i].file).then(function(b64){
+        return api('genbaPhoto',{findingId:fid,phase:phase,base64:b64,mimeType:'image/jpeg'});
+      }).then(function(r){
+        if(!r.ok){btn.disabled=false;btn.textContent='Retry';err.textContent=r.error||r.reason||'upload error';return;}
+        uploadSequential(fid,files,phase,i+1,btn,err);
+      });
+    }
+    function val(id){return document.getElementById(id).value;}
+
+    /* ---------- detail ---------- */
+    function openFinding(fid){
+      document.getElementById('fab').classList.add('hidden');
+      document.getElementById('back').style.visibility='visible'; setTitle('Finding');
+      show('<div class="spinner"></div>');
+      api('genbaGet',{findingId:fid}).then(function(r){
+        if(!r.ok){show('<div class="empty">not found</div>');return;}
+        renderDetail(r.finding,r.photos);
+      });
+    }
+    function renderDetail(f,photos){
+      var st=f.status.replace(/\s/g,'');
+      var before=photos.filter(function(p){return p.phase==='before';});
+      var after=photos.filter(function(p){return p.phase==='after';});
+      var gal=function(arr){return arr.length? '<div class="gallery">'+arr.map(function(p){return '<img src="'+esc(p.url)+'" referrerpolicy="no-referrer">';}).join('')+'</div>':'<div class="empty" style="padding:8px">none</div>';};
+      var h='<div class="card" style="display:block">'+
+        '<div class="row"><b>'+esc(f.area)+'</b> <span class="badge s-'+st+'">'+esc(f.status)+'</span></div>'+
+        '<div class="row">'+esc(f.category)+' · '+esc(f.severity)+'</div>'+
+        '<div class="row">'+esc(f.description||'-')+'</div>'+
+        '<div class="row"><span style="color:var(--muted)">Remark:</span> '+esc(f.remark||'-')+'</div>'+
+        '<div class="row" style="color:var(--muted)">By '+esc(f.walker)+' · '+esc(f.date)+(f.ownerEmpId?(' · owner '+esc(f.ownerEmpId)):'')+(f.dueDate?(' · due '+esc(f.dueDate)):'')+'</div>'+
+        '<div class="sec-title">Before</div>'+gal(before)+
+        '<div class="sec-title">After</div>'+gal(after)+'</div>';
+      // actions
+      if(f.status!=='Closed'){
+        h+='<div class="card" style="display:block"><div class="sec-title">Update</div>';
+        h+='<button class="btn sec" onclick="setStatus(\''+f.findingId+'\',\'In Progress\')">Mark In Progress</button>';
+        h+='<button class="btn sec" style="margin-top:8px" onclick="setStatus(\''+f.findingId+'\',\'Done\')">Mark Done</button>';
+        h+='<label>Remark (repair / WO no.)</label><input id="remarkEdit" value="'+esc(f.remark||'')+'">';
+        h+='<button class="btn sec" style="margin-top:8px" onclick="saveRemark(\''+f.findingId+'\')">Save remark</button>';
+        if(BOOT.canClose){
+          h+='<div class="sec-title">Close (needs 1 after photo)</div>';
+          h+='<div class="thumbs" id="athumbs"></div>';
+          h+='<div class="err" id="aerr"></div>';
+          h+='<button class="btn green" onclick="closeFinding(\''+f.findingId+'\')">Verify & Close</button>';
+        }
+        h+='</div>';
+      }
+      show(h);
+      window._afterFiles=[]; window._curFid=f.findingId; if(BOOT.canClose&&f.status!=='Closed') renderAfterThumbs();
+    }
+    function renderAfterThumbs(){
+      var t=document.getElementById('athumbs');if(!t)return;var h='';
+      (window._afterFiles||[]).forEach(function(f,i){h+='<div class="thumb"><img src="'+f.preview+'"><div class="x" onclick="rmAfter('+i+')">×</div></div>';});
+      if((window._afterFiles||[]).length<BOOT.maxPhotos) h+='<div class="add-photo" onclick="pickAfter()">+</div>';
+      t.innerHTML=h;
+    }
+    function pickAfter(){
+      var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.capture='environment';
+      inp.onchange=function(){var file=inp.files[0];if(!file)return;var rd=new FileReader();
+        rd.onload=function(e){window._afterFiles.push({file:file,preview:e.target.result});renderAfterThumbs();};rd.readAsDataURL(file);};
+      inp.click();
+    }
+    function rmAfter(i){window._afterFiles.splice(i,1);renderAfterThumbs();}
+
+    function setStatus(fid,status){
+      api('genbaStatus',{findingId:fid,status:status}).then(function(r){
+        if(!r.ok){alert(r.error||r.reason||'error');return;} openFinding(fid);
+      });
+    }
+    function saveRemark(fid){
+      var v=document.getElementById('remarkEdit').value;
+      api('genbaRemark',{findingId:fid,remark:v}).then(function(r){
+        if(!r.ok){alert(r.error||r.reason||'error');return;} openFinding(fid);
+      });
+    }
+    function closeFinding(fid){
+      var err=document.getElementById('aerr');
+      if(!window._afterFiles||!window._afterFiles.length){err.textContent='Add at least 1 after photo.';return;}
+      err.textContent='Uploading after photos…';
+      uploadAfterThenClose(fid,window._afterFiles.slice(),0,err);
+    }
+    function uploadAfterThenClose(fid,files,i,err){
+      if(i>=files.length){
+        api('genbaStatus',{findingId:fid,status:'Closed',note:''}).then(function(r){
+          if(!r.ok){err.textContent=r.reason==='need_after_photo'?'After photo required':(r.error||r.reason);return;}
+          renderList();
+        });return;
+      }
+      resize(files[i].file).then(function(b64){return api('genbaPhoto',{findingId:fid,phase:'after',base64:b64,mimeType:'image/jpeg'});})
+        .then(function(r){if(!r.ok){err.textContent=r.error||r.reason;return;}uploadAfterThenClose(fid,files,i+1,err);});
+    }
+
+    /* ---------- nav ---------- */
+    function goBack(){ if(document.getElementById('title').textContent==='Genba & 5S Walk'){ try{liff.closeWindow();}catch(e){} } else { renderList(); } }
+
+    boot();
+  </script>
+</body>
+</html>
