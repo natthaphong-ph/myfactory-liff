@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>My Factory</title>
+  <!-- LINE LIFF SDK -->
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    :root{
+      --navy:#0F172A; --teal:#0D9488; --amber:#D97706; --snow:#FAFAFA;
+      --charcoal:#1E293B; --surface:#F1F5F9; --border:#E5E7EB;
+      --red:#EF4444; --green:#10B981; --muted:#64748B;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:"IBM Plex Sans Thai",sans-serif;background:var(--snow);color:var(--charcoal)}
+    .app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+    header{background:var(--navy);color:#fff;padding:16px;text-align:center}
+    header h1{font-size:17px;margin:0;font-weight:600}
+    header p{margin:4px 0 0;font-size:12px;color:#cbd5e1}
+    main{flex:1;padding:18px}
+    .card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:14px}
+    .state{text-align:center;padding:24px 10px}
+    .state .ic{font-size:40px}
+    .state h2{font-size:17px;margin:10px 0 6px;color:var(--navy)}
+    .state p{font-size:14px;color:var(--muted);margin:0}
+    label{display:block;font-size:13px;color:var(--muted);margin:0 0 6px}
+    input{width:100%;padding:12px;font-size:16px;border:1px solid var(--border);border-radius:10px;outline:none}
+    input:focus{border-color:var(--teal)}
+    button.primary{width:100%;margin-top:14px;background:var(--teal);color:#fff;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:600;cursor:pointer}
+    button.primary:disabled{opacity:.5}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .tile{background:#fff;border:1px solid var(--border);border-radius:14px;padding:18px 12px;text-align:center;text-decoration:none;color:var(--charcoal)}
+    .tile .ic{font-size:26px;color:var(--teal)}
+    .tile .nm{font-size:13px;margin-top:8px;font-weight:600}
+    .hello{font-size:14px;margin-bottom:12px}
+    .hello b{color:var(--navy)}
+    .err{color:var(--red);font-size:13px;margin-top:8px;text-align:center}
+    .spinner{border:3px solid var(--border);border-top-color:var(--teal);border-radius:50%;width:34px;height:34px;animation:spin 1s linear infinite;margin:0 auto}
+    @keyframes spin{to{transform:rotate(360deg)}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>My Factory</h1>
+      <p>Production Super App</p>
+    </header>
+    <main id="main">
+      <div class="state"><div class="spinner"></div><p style="margin-top:14px">Connecting to LINE…</p></div>
+    </main>
+  </div>
+
+  <script>
+    /* ====== CONFIG — already filled for My Factory ====== */
+    var LIFF_ID   = '2010250488-MyQiwlFp';
+    var API_URL   = 'https://script.google.com/macros/s/AKfycbyRJP-fDdUKFkAd5LmdBUXVM6wAb83i2leOueJ-d1Uw_czlnujTq-csD2WGGkkxcNWE/exec';
+    /* ===================================================== */
+
+    var idToken = null;
+    var main = document.getElementById('main');
+
+    function show(html){ main.innerHTML = html; }
+
+    /** POST to GAS as text/plain to avoid a CORS preflight (GAS has no OPTIONS). */
+    function api(action, extra){
+      var body = Object.assign({ action: action, idToken: idToken }, extra || {});
+      return fetch(API_URL, {
+        method:'POST',
+        headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body: JSON.stringify(body)
+      }).then(function(r){ return r.json(); });
+    }
+
+    function boot(){
+      liff.init({ liffId: LIFF_ID }).then(function(){
+        if(!liff.isLoggedIn()){ liff.login(); return; }
+        idToken = liff.getIDToken();
+        return api('checkAccess').then(handleAccess);
+      }).catch(function(e){
+        show('<div class="state"><div class="ic">⚠️</div><h2>LINE error</h2><p>'+e+'</p></div>');
+      });
+    }
+
+    function handleAccess(res){
+      if(!res || !res.ok){
+        show('<div class="state"><div class="ic">⚠️</div><h2>Error</h2><p>'+((res&&res.error)||'unknown')+'</p></div>');
+        return;
+      }
+      var d = res.data;
+      switch(d.state){
+        case 'active':            renderHome(d); break;
+        case 'not_registered':    renderRegister(d, false); break;
+        case 'reverify_required': renderRegister(d, true); break;
+        case 'pending':           renderPending(); break;
+        case 'revoked':           renderBlocked('Your access was revoked.','Contact the system admin.'); break;
+        case 'denied_inactive':   renderBlocked('Account inactive','Your employee record is inactive. Contact HR/Admin.'); break;
+        default:                  renderBlocked('Access denied', d.state);
+      }
+    }
+
+    function renderRegister(d, reverify){
+      show(
+        '<div class="card">'+
+          '<div class="state" style="padding:10px 0 18px"><div class="ic">🪪</div>'+
+          '<h2>'+(reverify?'Re-verify your identity':'Register (KYC)')+'</h2>'+
+          '<p>Hi '+esc(d.displayName)+', enter your Employee ID to '+(reverify?'re-confirm':'request')+' access.</p></div>'+
+          '<label>Employee ID</label>'+
+          '<input id="emp" placeholder="e.g. E0001" autocapitalize="characters">'+
+          '<button class="primary" id="go">Submit for approval</button>'+
+          '<div class="err" id="err"></div>'+
+        '</div>'
+      );
+      document.getElementById('go').onclick = function(){
+        var emp = document.getElementById('emp').value.trim();
+        if(!emp){ document.getElementById('err').textContent='Please enter your Employee ID.'; return; }
+        this.disabled=true; this.textContent='Submitting…';
+        var btn=this;
+        api('submitKyc', { empId: emp }).then(function(r){
+          if(r.ok && r.data && r.data.ok){ renderPending(); }
+          else {
+            btn.disabled=false; btn.textContent='Submit for approval';
+            var reason = (r.data && r.data.reason) || r.error || 'failed';
+            document.getElementById('err').textContent = reasonMsg(reason);
+          }
+        });
+      };
+    }
+
+    function reasonMsg(r){
+      if(r==='emp_not_found') return 'Employee ID not found. Check with Admin/HR.';
+      if(r==='emp_inactive')  return 'This Employee ID is inactive.';
+      return 'Error: '+r;
+    }
+
+    function renderPending(){
+      show('<div class="state"><div class="ic">⏳</div><h2>Awaiting approval</h2>'+
+           '<p>Your request was sent to the admin. You will get access once approved.</p></div>');
+    }
+
+    function renderBlocked(title, sub){
+      show('<div class="state"><div class="ic">⛔</div><h2>'+esc(title)+'</h2><p>'+esc(sub)+'</p></div>');
+    }
+
+    function renderHome(d){
+      var apps = d.apps || [];
+      var tiles = apps.length ? apps.map(function(a){
+        var href = (a.url && a.url.indexOf('http')===0) ? a.url : '#';
+        return '<a class="tile" href="'+href+'"><div class="ic">▣</div><div class="nm">'+esc(a.appName)+'</div></a>';
+      }).join('') : '<p style="color:var(--muted);font-size:13px">No apps assigned yet.</p>';
+      show(
+        '<div class="hello">Welcome, <b>'+esc(d.empName||d.displayName)+'</b>'+(d.dept?(' · '+esc(d.dept)):'')+'</div>'+
+        '<div class="grid">'+tiles+'</div>'
+      );
+    }
+
+    function esc(s){return String(s==null?'':s).replace(/[&<>]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
+
+    boot();
+  </script>
+</body>
+</html>
