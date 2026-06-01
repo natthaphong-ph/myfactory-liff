@@ -16,6 +16,8 @@
     header h1{font-size:16px;margin:0;font-weight:600;flex:1}
     main{flex:1;padding:14px}
     .tabs{display:flex;gap:6px;margin-bottom:12px}
+    .frow{display:flex;gap:8px;margin-bottom:8px}
+    .frow select{flex:1;min-width:0;font-size:14px;padding:9px}
     .tab{flex:1;text-align:center;padding:8px;border:1px solid var(--border);border-radius:8px;background:#fff;font-size:13px;cursor:pointer}
     .tab.active{background:var(--teal);color:#fff;border-color:var(--teal)}
     .card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:10px;display:flex;gap:10px;cursor:pointer}
@@ -74,6 +76,19 @@
     function show(h){main.innerHTML=h;}
     function setTitle(t){document.getElementById('title').textContent=t;}
 
+    /* prevent double-submit: lock UI + show progress until a call finishes */
+    var BUSY=false;
+    function busyOn(msg){
+      BUSY=true;
+      var o=document.getElementById('busy');
+      if(!o){o=document.createElement('div');o.id='busy';
+        o.style.cssText='position:fixed;inset:0;background:rgba(250,250,250,.75);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:50';
+        o.innerHTML='<div class="spinner"></div><div id="busymsg" style="margin-top:12px;color:#0F172A;font-size:14px;font-weight:600"></div>';
+        document.body.appendChild(o);}
+      document.getElementById('busymsg').textContent=msg||'Working…'; o.style.display='flex';
+    }
+    function busyOff(){ BUSY=false; var o=document.getElementById('busy'); if(o)o.style.display='none'; }
+
     /* image resize -> base64 (no prefix) */
     function resize(file){return new Promise(function(res,rej){
       var rd=new FileReader();rd.onload=function(e){var img=new Image();
@@ -100,37 +115,51 @@
         if(!liff.isLoggedIn()){liff.login();return;}
         idToken=liff.getIDToken();
         var tf=Date.now();
-        return api('genbaInit',{scope:'all'}).then(function(r){   // 1 call = bootstrap + list
+        return api('genbaInit').then(function(r){   // filter options + assignees + All list
           var tFetch=Date.now()-tf;
           if(!r||!r.ok){show('<div class="empty">'+((r&&r.error)||'No access to Genba')+'</div>');return;}
-          BOOT=r.boot; scope='all'; renderListShell(); fillList(r.findings);
+          BOOT=r.boot; buildAssigneeMap(); renderHome(r.findings);
           perfBadge(tInit,tFetch);
         });
       }).catch(function(e){show('<div class="empty">LINE error: '+e+'</div>');});
     }
 
-    /* ---------- list ---------- */
-    function renderListShell(){
+    /* ---------- home (filters) ---------- */
+    var ASSIGNEE={};   // id -> {name,type}
+    function buildAssigneeMap(){ ASSIGNEE={}; (BOOT.assignees||[]).forEach(function(a){ASSIGNEE[a.id]=a;}); }
+    function assigneeLabel(id){ if(!id) return '—'; var a=ASSIGNEE[id]; return a? (a.type==='group'?'👥 ':'👤 ')+a.name : id; }
+
+    function opts(arr,blank){ return '<option value="">'+(blank||'— All —')+'</option>'+arr.map(function(x){return '<option value="'+esc(x)+'">'+esc(x)+'</option>';}).join(''); }
+    function renderHome(initial){
       setTitle('Genba & 5S Walk'); document.getElementById('back').style.visibility='hidden';
       document.getElementById('fab').classList.remove('hidden');
-      var tabs='<div class="tabs">'+tab('all','All')+tab('mine','Mine')+tab('assigned','Assigned')+'</div>';
-      show(tabs+'<div id="list"></div>');
+      var asg='<option value="">— All —</option>'+(BOOT.assignees||[]).map(function(a){return '<option value="'+esc(a.id)+'">'+(a.type==='group'?'👥 ':'👤 ')+esc(a.name)+'</option>';}).join('');
+      var stOpts=(BOOT.statuses||['All']).map(function(s){return '<option value="'+esc(s)+'"'+(s==='All'?' selected':'')+'>'+esc(s)+'</option>';}).join('');
+      show('<div class="card" style="display:block;padding:12px">'+
+        '<div class="frow"><select id="fdept">'+opts(BOOT.departments||[])+'</select>'+
+        '<select id="farea">'+opts(BOOT.areas||[])+'</select></div>'+
+        '<div class="frow"><select id="fasg">'+asg+'</select>'+
+        '<select id="fstatus">'+stOpts+'</select></div>'+
+        '<button class="btn" style="margin-top:10px" onclick="applyFilter()">Show</button>'+
+        '</div><div id="list"></div>');
+      fillList(initial);
     }
-    function fillList(findings){
-      var el=document.getElementById('list');
-      if(!findings||!findings.length){el.innerHTML='<div class="empty">No findings yet.</div>';return;}
-      el.innerHTML=findings.map(card).join('');
-    }
-    function renderList(){          // used by tab switches
-      renderListShell();
-      document.getElementById('list').innerHTML='<div class="spinner"></div>';
-      api('genbaList',{scope:scope}).then(function(r){
+    function applyFilter(){
+      if(BUSY)return; busyOn('Loading…');
+      var filter={dept:val('fdept'),area:val('farea'),assigned:val('fasg'),status:val('fstatus')};
+      api('genbaFilter',{filter:filter}).then(function(r){
+        busyOff();
         if(!r.ok){document.getElementById('list').innerHTML='<div class="empty">'+(r.error||'error')+'</div>';return;}
         fillList(r.findings);
       });
     }
-    function tab(s,label){return '<div class="tab'+(scope===s?' active':'')+'" onclick="setScope(\''+s+'\')">'+label+'</div>';}
-    function setScope(s){scope=s;renderList();}
+    function renderList(){ renderHome([]); applyFilter(); }   // refresh after actions
+    function fillList(findings){
+      var el=document.getElementById('list');
+      if(!el) return;
+      if(!findings||!findings.length){el.innerHTML='<div class="empty">No findings.</div>';return;}
+      el.innerHTML=findings.map(card).join('');
+    }
     function thumb(url,w){ return url ? url.replace('/uc?id=','/thumbnail?id=')+'&sz=w'+(w||200) : ''; }
     function card(f){
       var img=f.cover?'<img src="'+esc(thumb(f.cover,200))+'" referrerpolicy="no-referrer" loading="lazy">':'<div class="ph">no photo</div>';
@@ -138,6 +167,7 @@
       return '<div class="card" onclick="openFinding(\''+f.findingId+'\')">'+img+
         '<div class="meta"><div class="ttl">'+esc(f.area)+'</div>'+
         '<div class="sub">'+esc(f.category)+' · '+esc(f.severity)+' · '+esc(f.date)+'</div>'+
+        '<div class="sub">→ '+esc(assigneeLabel(f.ownerEmpId))+'</div>'+
         '<span class="badge s-'+st+'">'+esc(f.status)+'</span></div></div>';
     }
 
@@ -146,14 +176,14 @@
       beforeFiles=[]; document.getElementById('fab').classList.add('hidden');
       document.getElementById('back').style.visibility='visible'; setTitle('New Finding');
       var opt=function(arr){return arr.map(function(x){return '<option>'+esc(x)+'</option>';}).join('');};
-      var emps='<option value="">— none —</option>'+BOOT.employees.map(function(e){return '<option value="'+esc(e.id)+'">'+esc(e.id)+' '+esc(e.name)+'</option>';}).join('');
+      var asg='<option value="">— none —</option>'+(BOOT.assignees||[]).map(function(a){return '<option value="'+esc(a.id)+'">'+(a.type==='group'?'👥 ':'👤 ')+esc(a.name)+'</option>';}).join('');
       show('<div class="card" style="display:block">'+
         '<label>Area</label><select id="area">'+opt(BOOT.areas)+'</select>'+
         '<label>5S / Safety category</label><select id="cat">'+opt(BOOT.categories)+'</select>'+
         '<label>Severity</label><select id="sev"><option>Low</option><option>Medium</option><option>High</option></select>'+
         '<label>Description</label><textarea id="desc" placeholder="What did you find?"></textarea>'+
         '<label>Remark (optional) — e.g. repair / work-order no.</label><input id="remark" placeholder="WO-2026-0001">'+
-        '<label>Assign owner</label><select id="owner">'+emps+'</select>'+
+        '<label>Assign to (person or group)</label><select id="owner">'+asg+'</select>'+
         '<label>Due date</label><input type="date" id="due">'+
         '<label>Before photos (required, max '+BOOT.maxPhotos+')</label>'+
         '<div class="thumbs" id="thumbs"></div>'+
@@ -178,23 +208,24 @@
     function rmFile(i){beforeFiles.splice(i,1);renderThumbs();}
 
     function saveFinding(){
+      if(BUSY)return;
       var err=document.getElementById('err');
       if(!beforeFiles.length){err.textContent='At least 1 before photo is required.';return;}
-      var btn=document.getElementById('save');btn.disabled=true;btn.textContent='Saving…';
+      var btn=document.getElementById('save');btn.disabled=true;btn.textContent='Saving…'; busyOn('Saving finding…');
       var payload={area:val('area'),category:val('cat'),severity:val('sev'),
         description:val('desc'),remark:val('remark'),ownerEmpId:val('owner'),dueDate:val('due')};
       api('genbaCreate',{payload:payload}).then(function(r){
-        if(!r.ok){btn.disabled=false;btn.textContent='Submit finding';err.textContent=r.error||r.reason||'error';return;}
+        if(!r.ok){busyOff();btn.disabled=false;btn.textContent='Submit finding';err.textContent=r.error||r.reason||'error';return;}
         uploadSequential(r.findingId,beforeFiles.slice(),'before',0,btn,err);
       });
     }
     function uploadSequential(fid,files,phase,i,btn,err){
-      if(i>=files.length){renderList();return;}
-      btn.textContent='Uploading '+(i+1)+'/'+files.length+'…';
+      if(i>=files.length){busyOff();renderList();return;}
+      busyOn('Uploading '+(i+1)+'/'+files.length+'…');
       resize(files[i].file).then(function(b64){
         return api('genbaPhoto',{findingId:fid,phase:phase,base64:b64,mimeType:'image/jpeg'});
       }).then(function(r){
-        if(!r.ok){btn.disabled=false;btn.textContent='Retry';err.textContent=r.error||r.reason||'upload error';return;}
+        if(!r.ok){busyOff();btn.disabled=false;btn.textContent='Retry';err.textContent=r.error||r.reason||'upload error';return;}
         uploadSequential(fid,files,phase,i+1,btn,err);
       });
     }
@@ -220,16 +251,22 @@
         '<div class="row">'+esc(f.category)+' · '+esc(f.severity)+'</div>'+
         '<div class="row">'+esc(f.description||'-')+'</div>'+
         '<div class="row"><span style="color:var(--muted)">Remark:</span> '+esc(f.remark||'-')+'</div>'+
-        '<div class="row" style="color:var(--muted)">By '+esc(f.walker)+' · '+esc(f.date)+(f.ownerEmpId?(' · owner '+esc(f.ownerEmpId)):'')+(f.dueDate?(' · due '+esc(f.dueDate)):'')+'</div>'+
+        '<div class="row" style="color:var(--muted)">By '+esc(f.walker)+' · '+esc(f.date)+' · Assigned: '+esc(assigneeLabel(f.ownerEmpId))+(f.dueDate?(' · due '+esc(f.dueDate)):'')+'</div>'+
         '<div class="sec-title">Before</div>'+gal(before)+
         '<div class="sec-title">After</div>'+gal(after)+'</div>';
+      // can this user progress the work? (assignee / group member, or a manager)
+      var canAct=(BOOT.perms.indexOf('P_APPROVE')>-1)||(f.ownerEmpId&&(String(f.ownerEmpId)===String(BOOT.empId)||(BOOT.myGroups||[]).indexOf(f.ownerEmpId)>-1));
       // actions
-      if(f.status!=='Closed'){
+      if(f.status!=='Closed' && (canAct || BOOT.canClose)){
         h+='<div class="card" style="display:block"><div class="sec-title">Update</div>';
-        h+='<button class="btn sec" onclick="setStatus(\''+f.findingId+'\',\'In Progress\')">Mark In Progress</button>';
-        h+='<button class="btn sec" style="margin-top:8px" onclick="setStatus(\''+f.findingId+'\',\'Done\')">Mark Done</button>';
-        h+='<label>Remark (repair / WO no.)</label><input id="remarkEdit" value="'+esc(f.remark||'')+'">';
-        h+='<button class="btn sec" style="margin-top:8px" onclick="saveRemark(\''+f.findingId+'\')">Save remark</button>';
+        if(canAct){
+          h+='<button class="btn sec" onclick="setStatus(\''+f.findingId+'\',\'In Progress\')">Mark In Progress</button>';
+          h+='<button class="btn sec" style="margin-top:8px" onclick="setStatus(\''+f.findingId+'\',\'Done\')">Mark Done</button>';
+          h+='<label>Remark (repair / WO no.)</label><input id="remarkEdit" value="'+esc(f.remark||'')+'">';
+          h+='<button class="btn sec" style="margin-top:8px" onclick="saveRemark(\''+f.findingId+'\')">Save remark</button>';
+        } else {
+          h+='<div class="sub" style="margin-bottom:6px">You are not the assignee — view only. Leader/Manager can still close.</div>';
+        }
         if(BOOT.canClose){
           h+='<div class="sec-title">Close (needs 1 after photo)</div>';
           h+='<div class="thumbs" id="athumbs"></div>';
@@ -256,31 +293,36 @@
     function rmAfter(i){window._afterFiles.splice(i,1);renderAfterThumbs();}
 
     function setStatus(fid,status){
+      if(BUSY)return; busyOn('Updating…');
       api('genbaStatus',{findingId:fid,status:status}).then(function(r){
-        if(!r.ok){alert(r.error||r.reason||'error');return;} openFinding(fid);
+        busyOff(); if(!r.ok){alert(r.error||r.reason||'error');return;} openFinding(fid);
       });
     }
     function saveRemark(fid){
-      var v=document.getElementById('remarkEdit').value;
+      if(BUSY)return; var v=document.getElementById('remarkEdit').value; busyOn('Saving remark…');
       api('genbaRemark',{findingId:fid,remark:v}).then(function(r){
-        if(!r.ok){alert(r.error||r.reason||'error');return;} openFinding(fid);
+        busyOff(); if(!r.ok){alert(r.error||r.reason||'error');return;} openFinding(fid);
       });
     }
     function closeFinding(fid){
+      if(BUSY)return;
       var err=document.getElementById('aerr');
       if(!window._afterFiles||!window._afterFiles.length){err.textContent='Add at least 1 after photo.';return;}
-      err.textContent='Uploading after photos…';
+      busyOn('Uploading after photos…');
       uploadAfterThenClose(fid,window._afterFiles.slice(),0,err);
     }
     function uploadAfterThenClose(fid,files,i,err){
       if(i>=files.length){
+        busyOn('Closing…');
         api('genbaStatus',{findingId:fid,status:'Closed',note:''}).then(function(r){
+          busyOff();
           if(!r.ok){err.textContent=r.reason==='need_after_photo'?'After photo required':(r.error||r.reason);return;}
           renderList();
         });return;
       }
+      busyOn('Uploading after '+(i+1)+'/'+files.length+'…');
       resize(files[i].file).then(function(b64){return api('genbaPhoto',{findingId:fid,phase:'after',base64:b64,mimeType:'image/jpeg'});})
-        .then(function(r){if(!r.ok){err.textContent=r.error||r.reason;return;}uploadAfterThenClose(fid,files,i+1,err);});
+        .then(function(r){if(!r.ok){busyOff();err.textContent=r.error||r.reason;return;}uploadAfterThenClose(fid,files,i+1,err);});
     }
 
     /* ---------- nav ---------- */
