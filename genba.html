@@ -90,25 +90,31 @@
       liff.init({liffId:LIFF_ID}).then(function(){
         if(!liff.isLoggedIn()){liff.login();return;}
         idToken=liff.getIDToken();
-        return api('genbaBootstrap').then(function(b){
-          if(!b||!b.ok){show('<div class="empty">'+((b&&b.error)||'No access to Genba')+'</div>');return;}
-          BOOT=b; renderList();
+        return api('genbaInit',{scope:'all'}).then(function(r){   // 1 call = bootstrap + list
+          if(!r||!r.ok){show('<div class="empty">'+((r&&r.error)||'No access to Genba')+'</div>');return;}
+          BOOT=r.boot; scope='all'; renderListShell(); fillList(r.findings);
         });
       }).catch(function(e){show('<div class="empty">LINE error: '+e+'</div>');});
     }
 
     /* ---------- list ---------- */
-    function renderList(){
+    function renderListShell(){
       setTitle('Genba & 5S Walk'); document.getElementById('back').style.visibility='hidden';
       document.getElementById('fab').classList.remove('hidden');
-      var tabs='<div class="tabs">'+
-        tab('all','All')+tab('mine','Mine')+tab('assigned','Assigned')+'</div>';
-      show(tabs+'<div id="list"><div class="spinner"></div></div>');
+      var tabs='<div class="tabs">'+tab('all','All')+tab('mine','Mine')+tab('assigned','Assigned')+'</div>';
+      show(tabs+'<div id="list"></div>');
+    }
+    function fillList(findings){
+      var el=document.getElementById('list');
+      if(!findings||!findings.length){el.innerHTML='<div class="empty">No findings yet.</div>';return;}
+      el.innerHTML=findings.map(card).join('');
+    }
+    function renderList(){          // used by tab switches
+      renderListShell();
+      document.getElementById('list').innerHTML='<div class="spinner"></div>';
       api('genbaList',{scope:scope}).then(function(r){
-        var el=document.getElementById('list');
-        if(!r.ok){el.innerHTML='<div class="empty">'+(r.error||'error')+'</div>';return;}
-        if(!r.findings.length){el.innerHTML='<div class="empty">No findings yet.</div>';return;}
-        el.innerHTML=r.findings.map(card).join('');
+        if(!r.ok){document.getElementById('list').innerHTML='<div class="empty">'+(r.error||'error')+'</div>';return;}
+        fillList(r.findings);
       });
     }
     function tab(s,label){return '<div class="tab'+(scope===s?' active':'')+'" onclick="setScope(\''+s+'\')">'+label+'</div>';}
