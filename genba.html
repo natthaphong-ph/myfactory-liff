@@ -86,13 +86,25 @@
       rd.onerror=rej;rd.readAsDataURL(file);});}
 
     /* ---------- boot ---------- */
+    function perfBadge(a,b){
+      var d=document.createElement('div');
+      d.style.cssText='position:fixed;left:8px;bottom:8px;background:#0F172A;color:#fff;font-size:11px;padding:5px 9px;border-radius:6px;z-index:9;opacity:.9';
+      d.textContent='liff.init '+a+'ms · call '+b+'ms';
+      document.body.appendChild(d);
+      setTimeout(function(){d.remove();},8000);
+    }
     function boot(){
+      var t0=Date.now(), tInit=0;
       liff.init({liffId:LIFF_ID}).then(function(){
+        tInit=Date.now()-t0;
         if(!liff.isLoggedIn()){liff.login();return;}
         idToken=liff.getIDToken();
+        var tf=Date.now();
         return api('genbaInit',{scope:'all'}).then(function(r){   // 1 call = bootstrap + list
+          var tFetch=Date.now()-tf;
           if(!r||!r.ok){show('<div class="empty">'+((r&&r.error)||'No access to Genba')+'</div>');return;}
           BOOT=r.boot; scope='all'; renderListShell(); fillList(r.findings);
+          perfBadge(tInit,tFetch);
         });
       }).catch(function(e){show('<div class="empty">LINE error: '+e+'</div>');});
     }
