@@ -113,8 +113,9 @@
     }
     function tab(s,label){return '<div class="tab'+(scope===s?' active':'')+'" onclick="setScope(\''+s+'\')">'+label+'</div>';}
     function setScope(s){scope=s;renderList();}
+    function thumb(url,w){ return url ? url.replace('/uc?id=','/thumbnail?id=')+'&sz=w'+(w||200) : ''; }
     function card(f){
-      var img=f.cover?'<img src="'+esc(f.cover)+'" referrerpolicy="no-referrer">':'<div class="ph">no photo</div>';
+      var img=f.cover?'<img src="'+esc(thumb(f.cover,200))+'" referrerpolicy="no-referrer" loading="lazy">':'<div class="ph">no photo</div>';
       var st=f.status.replace(/\s/g,'');
       return '<div class="card" onclick="openFinding(\''+f.findingId+'\')">'+img+
         '<div class="meta"><div class="ttl">'+esc(f.area)+'</div>'+
@@ -195,7 +196,7 @@
       var st=f.status.replace(/\s/g,'');
       var before=photos.filter(function(p){return p.phase==='before';});
       var after=photos.filter(function(p){return p.phase==='after';});
-      var gal=function(arr){return arr.length? '<div class="gallery">'+arr.map(function(p){return '<img src="'+esc(p.url)+'" referrerpolicy="no-referrer">';}).join('')+'</div>':'<div class="empty" style="padding:8px">none</div>';};
+      var gal=function(arr){return arr.length? '<div class="gallery">'+arr.map(function(p){return '<a href="'+esc(p.url)+'" target="_blank"><img src="'+esc(thumb(p.url,400))+'" referrerpolicy="no-referrer" loading="lazy"></a>';}).join('')+'</div>':'<div class="empty" style="padding:8px">none</div>';};
       var h='<div class="card" style="display:block">'+
         '<div class="row"><b>'+esc(f.area)+'</b> <span class="badge s-'+st+'">'+esc(f.status)+'</span></div>'+
         '<div class="row">'+esc(f.category)+' · '+esc(f.severity)+'</div>'+
