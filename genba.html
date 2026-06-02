@@ -135,7 +135,7 @@
     function buildAssigneeMap(){ ASSIGNEE={}; (BOOT.assignees||[]).forEach(function(a){ASSIGNEE[a.id]=a;}); }
     function assigneeLabel(id){ if(!id) return '—'; var a=ASSIGNEE[id]; return a? (a.type==='group'?'👥 ':'👤 ')+a.name : id; }
 
-    function opts(arr,blank){ return '<option value="">'+(blank||'— All —')+'</option>'+arr.map(function(x){return '<option value="'+esc(x)+'">'+esc(x)+'</option>';}).join(''); }
+    function opts(arr,blank){ return '<option value="">'+(blank||'— All —')+'</option>'+arr.map(function(x){return '<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>';}).join(''); }
     function renderHome(initial){
       setTitle('Genba & 5S Walk'); document.getElementById('back').style.visibility='hidden';
       document.getElementById('fab').classList.remove('hidden');
@@ -171,8 +171,8 @@
       var img=f.cover?'<img src="'+esc(thumb(f.cover,200))+'" referrerpolicy="no-referrer" loading="lazy">':'<div class="ph">no photo</div>';
       var st=f.status.replace(/\s/g,'');
       return '<div class="card" onclick="openFinding(\''+f.findingId+'\')">'+img+
-        '<div class="meta"><div class="ttl">'+esc(f.area)+'</div>'+
-        '<div class="sub">'+esc(f.category)+' · '+esc(f.severity)+' · '+esc(f.date)+'</div>'+
+        '<div class="meta"><div class="ttl">'+esc(f.areaName)+'</div>'+
+        '<div class="sub">'+esc(f.categoryName)+' · '+esc(f.severity)+' · '+esc(f.date)+'</div>'+
         '<div class="sub">→ '+esc(assigneeLabel(f.ownerEmpId))+'</div>'+
         '<span class="badge s-'+st+'">'+esc(f.status)+'</span></div></div>';
     }
@@ -181,7 +181,7 @@
     function showForm(){
       beforeFiles=[]; document.getElementById('fab').classList.add('hidden');
       document.getElementById('back').style.visibility='visible'; setTitle('New Finding');
-      var opt=function(arr){return arr.map(function(x){return '<option>'+esc(x)+'</option>';}).join('');};
+      var opt=function(arr){return arr.map(function(x){return '<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>';}).join('');};
       var asg='<option value="">— none —</option>'+(BOOT.assignees||[]).map(function(a){return '<option value="'+esc(a.id)+'">'+(a.type==='group'?'👥 ':'👤 ')+esc(a.name)+'</option>';}).join('');
       show('<div class="card" style="display:block">'+
         '<label>Area</label><select id="area">'+opt(BOOT.areas)+'</select>'+
@@ -253,8 +253,8 @@
       var after=photos.filter(function(p){return p.phase==='after';});
       var gal=function(arr){return arr.length? '<div class="gallery">'+arr.map(function(p){return '<a href="'+esc(p.url)+'" target="_blank"><img src="'+esc(thumb(p.url,400))+'" referrerpolicy="no-referrer" loading="lazy"></a>';}).join('')+'</div>':'<div class="empty" style="padding:8px">none</div>';};
       var h='<div class="card" style="display:block">'+
-        '<div class="row"><b>'+esc(f.area)+'</b> <span class="badge s-'+st+'">'+esc(f.status)+'</span></div>'+
-        '<div class="row">'+esc(f.category)+' · '+esc(f.severity)+'</div>'+
+        '<div class="row"><b>'+esc(f.areaName)+'</b> <span class="badge s-'+st+'">'+esc(f.status)+'</span></div>'+
+        '<div class="row">'+esc(f.categoryName)+' · '+esc(f.severity)+'</div>'+
         '<div class="row">'+esc(f.description||'-')+'</div>'+
         '<div class="row"><span style="color:var(--muted)">Remark:</span> '+esc(f.remark||'-')+'</div>'+
         '<div class="row" style="color:var(--muted)">By '+esc(f.walker)+' · '+esc(f.date)+' · Assigned: '+esc(assigneeLabel(f.ownerEmpId))+(f.dueDate?(' · due '+esc(f.dueDate)):'')+'</div>'+

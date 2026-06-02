@@ -107,7 +107,7 @@
     }
     function buildFilters(){
       if($('fdept').options.length) return;
-      var opt=function(arr,all){return '<option value="">'+all+'</option>'+arr.map(function(x){return '<option>'+esc(x)+'</option>';}).join('');};
+      var opt=function(arr,all){return '<option value="">'+all+'</option>'+arr.map(function(x){return '<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>';}).join('');};
       $('fdept').innerHTML=opt(DATA.boot.departments,'Department — all');
       $('farea').innerHTML=opt(DATA.boot.areas,'Area — all');
       $('fasg').innerHTML='<option value="">Assigned — all</option>'+DATA.boot.assignees.map(function(a){return '<option value="'+esc(a.id)+'">'+esc(a.name)+'</option>';}).join('');
@@ -159,7 +159,7 @@
     function renderFind(){
       var rows=DATA.findings;
       var h='<div class="card"><h3>Findings ('+rows.length+')</h3><table><thead><tr><th>Area</th><th>Category</th><th>Sev</th><th>Status</th><th>Assigned</th><th>Due</th></tr></thead><tbody>'+
-        rows.map(function(f){var st=f.status.replace(/\s/g,'');return '<tr class="click" onclick="openEdit(\''+f.findingId+'\')"><td>'+esc(f.area)+'</td><td>'+esc(f.category)+'</td><td>'+esc(f.severity)+'</td><td><span class="badge s-'+st+'">'+esc(f.status)+'</span></td><td>'+esc(asgName(f.ownerEmpId))+'</td><td>'+esc(f.dueDate||'-')+'</td></tr>';}).join('')+'</tbody></table></div>';
+        rows.map(function(f){var st=f.status.replace(/\s/g,'');return '<tr class="click" onclick="openEdit(\''+f.findingId+'\')"><td>'+esc(f.areaName)+'</td><td>'+esc(f.categoryName)+'</td><td>'+esc(f.severity)+'</td><td><span class="badge s-'+st+'">'+esc(f.status)+'</span></td><td>'+esc(asgName(f.ownerEmpId))+'</td><td>'+esc(f.dueDate||'-')+'</td></tr>';}).join('')+'</tbody></table></div>';
       $('main').innerHTML=h;
     }
     function asgName(id){var a=(DATA.boot.assignees||[]).filter(function(x){return x.id===id;})[0];return a?a.name:(id||'—');}
@@ -171,12 +171,13 @@
         busyOff(); if(!r.ok){alert('not found');return;}
         var f=r.finding, photos=r.photos||[]; _afterFiles=[];
         var sel=function(id,arr,val){return '<select id="'+id+'">'+arr.map(function(x){return '<option'+(x===val?' selected':'')+'>'+esc(x)+'</option>';}).join('')+'</select>';};
+        var selObj=function(id,arr,valId){return '<select id="'+id+'">'+arr.map(function(x){return '<option value="'+esc(x.id)+'"'+(x.id===valId?' selected':'')+'>'+esc(x.name)+'</option>';}).join('')+'</select>';};
         var asg='<select id="eowner">'+DATA.boot.assignees.map(function(a){return '<option value="'+esc(a.id)+'"'+(a.id===f.ownerEmpId?' selected':'')+'>'+esc(a.name)+'</option>';}).join('')+'</select>';
         var gal=function(arr){return arr.length?'<div class="gallery">'+arr.map(function(p){return '<img src="'+esc(thumb(p.url,300))+'" referrerpolicy="no-referrer">';}).join('')+'</div>':'<div class="empty" style="padding:6px">none</div>';};
         var before=photos.filter(function(p){return p.phase==='before';}), after=photos.filter(function(p){return p.phase==='after';});
         $('modal').innerHTML='<h2>Edit finding · '+esc(f.findingId)+'</h2>'+
-          '<label>Area</label>'+sel('earea',DATA.boot.areas,f.area)+
-          '<label>Category</label>'+sel('ecat',DATA.boot.categories,f.category)+
+          '<label>Area</label>'+selObj('earea',DATA.boot.areas,f.area)+
+          '<label>Category</label>'+selObj('ecat',DATA.boot.categories,f.category)+
           '<label>Severity</label>'+sel('esev',['Low','Medium','High'],f.severity)+
           '<label>Description</label><textarea id="edesc">'+esc(f.description||'')+'</textarea>'+
           '<label>Remark (repair / WO no.)</label><input id="eremark" value="'+esc(f.remark||'')+'">'+
