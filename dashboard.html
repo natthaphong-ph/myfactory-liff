@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Genba & 5S Dashboard</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    :root{--navy:#0F172A;--teal:#0D9488;--amber:#D97706;--snow:#FAFAFA;--charcoal:#1E293B;
+      --surface:#F1F5F9;--border:#E5E7EB;--red:#EF4444;--green:#10B981;--muted:#64748B;--amberbg:#FFFBEB;}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:"IBM Plex Sans Thai",sans-serif;background:var(--snow);color:var(--charcoal)}
+    header{background:var(--navy);color:#fff;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+    header h1{font-size:18px;margin:0;font-weight:600}
+    header .who{font-size:12px;color:#cbd5e1}
+    .wrap{max-width:1200px;margin:0 auto;padding:16px 20px}
+    .tabs{display:flex;gap:8px;margin-bottom:14px}
+    .tab{padding:9px 16px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer;font-size:14px}
+    .tab.active{background:var(--teal);color:#fff;border-color:var(--teal)}
+    .filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+    .filters select{padding:9px;border:1px solid var(--border);border-radius:8px;font-size:14px;min-width:150px}
+    .btn{border:none;border-radius:8px;padding:9px 16px;font-size:14px;font-weight:600;cursor:pointer;color:#fff;background:var(--teal)}
+    .btn.sec{background:#fff;color:var(--teal);border:1px solid var(--teal)}
+    .btn.green{background:var(--green)} .btn.amber{background:var(--amber)} .btn:disabled{opacity:.5}
+    .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
+    .kpi{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px}
+    .kpi .l{font-size:12px;color:var(--muted)} .kpi .v{font-size:28px;font-weight:700;color:var(--navy)}
+    .kpi .v.red{color:var(--red)} .kpi .v.green{color:var(--green)} .kpi .v.amber{color:var(--amber)}
+    .charts{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px}
+    .card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px}
+    .card h3{font-size:14px;margin:0 0 10px;color:var(--navy);font-weight:600}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--border)}
+    th{color:var(--muted);font-size:11px;text-transform:uppercase}
+    tr.click{cursor:pointer} tr.click:hover{background:var(--surface)}
+    .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600}
+    .s-Open{background:#FEF2F2;color:var(--red)} .s-InProgress{background:#FFFBEB;color:var(--amber)}
+    .s-Done{background:#EFF6FF;color:#2563EB} .s-Closed{background:#ECFDF5;color:var(--green)}
+    .late{color:var(--red);font-weight:600}
+    .ov{position:fixed;inset:0;background:rgba(15,23,42,.5);display:none;align-items:flex-start;justify-content:center;z-index:30;overflow:auto;padding:20px}
+    .modal{background:#fff;border-radius:14px;max-width:560px;width:100%;padding:20px;margin-top:20px}
+    .modal h2{font-size:16px;margin:0 0 12px;color:var(--navy)}
+    label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px}
+    input,select,textarea{width:100%;padding:9px;border:1px solid var(--border);border-radius:8px;font-size:14px}
+    textarea{min-height:60px}
+    .gallery{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px}
+    .gallery img{width:100%;height:80px;object-fit:cover;border-radius:6px}
+    .busy{position:fixed;inset:0;background:rgba(250,250,250,.7);display:none;align-items:center;justify-content:center;z-index:50;font-weight:600;color:var(--navy)}
+    .empty{color:var(--muted);font-size:14px;text-align:center;padding:30px}
+    .hidden{display:none}
+    @media(max-width:760px){.charts{grid-template-columns:1fr}}
+    @media print{header,.tabs,.filters,.btn,#tab-dash,#tab-find{display:none!important}.wrap{padding:0}}
+  </style>
+</head>
+<body>
+  <header><h1>Genba &amp; 5S — Management Console</h1><span class="who" id="who"></span></header>
+  <div class="wrap">
+    <div class="tabs" id="tabs">
+      <div class="tab active" data-t="dash" onclick="switchTab('dash')">Dashboard</div>
+      <div class="tab" data-t="find" onclick="switchTab('find')">Findings</div>
+      <div class="tab" data-t="report" onclick="switchTab('report')">Report</div>
+    </div>
+    <div class="filters" id="filters">
+      <select id="fdept"></select><select id="farea"></select><select id="fasg"></select>
+      <button class="btn" onclick="reload()">Show</button>
+    </div>
+    <div id="main"><div class="empty">Connecting to LINE…</div></div>
+  </div>
+  <div class="ov" id="overlay"><div class="modal" id="modal"></div></div>
+  <div class="busy" id="busy">Working…</div>
+
+  <script>
+    var LIFF_ID='2010250488-MyQiwlFp';
+    var API_URL='https://script.google.com/macros/s/AKfycbyRJP-fDdUKFkAd5LmdBUXVM6wAb83i2leOueJ-d1Uw_czlnujTq-csD2WGGkkxcNWE/exec';
+    var idToken=null, DATA=null, TAB='dash', charts={}, BUSY=false;
+    var $=function(id){return document.getElementById(id);};
+    function busyOn(m){BUSY=true;$('busy').textContent=m||'Working…';$('busy').style.display='flex';}
+    function busyOff(){BUSY=false;$('busy').style.display='none';}
+    function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+    function api(action,extra){return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify(Object.assign({action:action,idToken:idToken},extra||{}))}).then(function(r){return r.json();});}
+    function thumb(u,w){return u?u.replace('/uc?id=','/thumbnail?id=')+'&sz=w'+(w||300):'';}
+
+    function boot(){
+      liff.init({liffId:LIFF_ID}).then(function(){
+        if(!liff.isLoggedIn()){liff.login();return;}
+        idToken=liff.getIDToken();
+        return reload();
+      }).catch(function(e){$('main').innerHTML='<div class="empty">LINE error: '+e+'</div>';});
+    }
+    function reload(){
+      busyOn('Loading…');
+      var filter={dept:$('fdept')?$('fdept').value:'',area:$('farea')?$('farea').value:'',assigned:$('fasg')?$('fasg').value:''};
+      return api('genbaDashboard',{filter:filter}).then(function(r){
+        busyOff();
+        if(!r||!r.ok){$('main').innerHTML='<div class="empty">'+((r&&r.error)||'No dashboard access (need P_DASHBOARD)')+'</div>';$('filters').style.display='none';return;}
+        DATA=r; $('who').textContent=r.boot.empName+' · '+(r.boot.perms||[]).length+' perms';
+        buildFilters(); render();
+      });
+    }
+    function buildFilters(){
+      if($('fdept').options.length) return;
+      var opt=function(arr,all){return '<option value="">'+all+'</option>'+arr.map(function(x){return '<option>'+esc(x)+'</option>';}).join('');};
+      $('fdept').innerHTML=opt(DATA.boot.departments,'Department — all');
+      $('farea').innerHTML=opt(DATA.boot.areas,'Area — all');
+      $('fasg').innerHTML='<option value="">Assigned — all</option>'+DATA.boot.assignees.map(function(a){return '<option value="'+esc(a.id)+'">'+esc(a.name)+'</option>';}).join('');
+    }
+    function switchTab(t){TAB=t;document.querySelectorAll('.tab').forEach(function(e){e.classList.toggle('active',e.dataset.t===t);});render();}
+
+    function render(){ if(!DATA)return; if(TAB==='dash')renderDash(); else if(TAB==='find')renderFind(); else renderReport(); }
+
+    function renderDash(){
+      var k=DATA.kpi;
+      var h='<div class="kpis">'+
+        kpi('Open',k.open)+kpi('Overdue',k.overdue,'red')+kpi('On-time close %',k.onTimePct+'%','green')+
+        kpi('Avg days to close',k.avgDays)+kpi('With repair / WO',k.withWO,'amber')+'</div>'+
+        '<div class="charts">'+
+        chartBox('Open by area','cArea')+chartBox('Open by group','cGroup')+
+        chartBox('Trend — created vs closed','cTrend')+chartBox('Aging of open findings','cAge')+
+        chartBox('By severity','cSev')+chartBox('By 5S category','cCat')+'</div>'+
+        '<div class="card" style="margin-bottom:14px"><h3>Overdue findings</h3>'+overdueTable(DATA.overdueList)+'</div>'+
+        '<div class="card"><h3>Top recurring (area · category)</h3>'+recurTable(DATA.topRecur)+'</div>';
+      $('main').innerHTML=h;
+      drawCharts();
+    }
+    function kpi(l,v,c){return '<div class="kpi"><div class="l">'+l+'</div><div class="v'+(c?(' '+c):'')+'">'+v+'</div></div>';}
+    function chartBox(t,id){return '<div class="card"><h3>'+t+'</h3><canvas id="'+id+'" height="150"></canvas></div>';}
+    function overdueTable(rows){ if(!rows.length)return '<div class="empty">None</div>';
+      return '<table><thead><tr><th>Area</th><th>Group</th><th>Due</th><th>Late</th></tr></thead><tbody>'+
+        rows.map(function(r){return '<tr><td>'+esc(r.area)+'</td><td>'+esc(r.group)+'</td><td>'+esc(r.due)+'</td><td class="late">'+r.late+'d</td></tr>';}).join('')+'</tbody></table>'; }
+    function recurTable(rows){ if(!rows.length)return '<div class="empty">None</div>';
+      return '<table><tbody>'+rows.map(function(r){return '<tr><td>'+esc(r.k)+'</td><td style="text-align:right;font-weight:600">'+r.n+'</td></tr>';}).join('')+'</tbody></table>'; }
+
+    function barData(obj,color){var keys=Object.keys(obj);return {labels:keys,datasets:[{data:keys.map(function(k){return obj[k];}),backgroundColor:color}]};}
+    function drawCharts(){
+      Object.keys(charts).forEach(function(k){try{charts[k].destroy();}catch(e){}});charts={};
+      var O={responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}};
+      charts.a=new Chart($('cArea'),{type:'bar',data:barData(DATA.byArea,'#0D9488'),options:O});
+      charts.g=new Chart($('cGroup'),{type:'bar',data:barData(DATA.byGroup,'#185FA5'),options:O});
+      var tk=Object.keys(DATA.trend).sort();
+      charts.t=new Chart($('cTrend'),{type:'line',data:{labels:tk,datasets:[
+        {label:'Created',data:tk.map(function(k){return DATA.trend[k].created;}),borderColor:'#185FA5',tension:.3},
+        {label:'Closed',data:tk.map(function(k){return DATA.trend[k].closed;}),borderColor:'#0D9488',tension:.3}]},
+        options:{responsive:true,scales:{y:{beginAtZero:true,ticks:{precision:0}}}}});
+      var ag=DATA.aging;
+      charts.age=new Chart($('cAge'),{type:'bar',data:{labels:['0-7d','8-30d','31-90d','>90d'],datasets:[{data:[ag.d0_7,ag.d8_30,ag.d31_90,ag.d90],backgroundColor:['#10B981','#0D9488','#D97706','#EF4444']}]},options:O});
+      charts.s=new Chart($('cSev'),{type:'bar',data:{labels:Object.keys(DATA.bySeverity),datasets:[{data:Object.values(DATA.bySeverity),backgroundColor:'#D97706'}]},options:O});
+      charts.c=new Chart($('cCat'),{type:'bar',data:barData(DATA.byCategory,'#0D9488'),options:O});
+    }
+
+    /* ---------- Findings (manage) ---------- */
+    function renderFind(){
+      var rows=DATA.findings;
+      var h='<div class="card"><h3>Findings ('+rows.length+')</h3><table><thead><tr><th>Area</th><th>Category</th><th>Sev</th><th>Status</th><th>Assigned</th><th>Due</th></tr></thead><tbody>'+
+        rows.map(function(f){var st=f.status.replace(/\s/g,'');return '<tr class="click" onclick="openEdit(\''+f.findingId+'\')"><td>'+esc(f.area)+'</td><td>'+esc(f.category)+'</td><td>'+esc(f.severity)+'</td><td><span class="badge s-'+st+'">'+esc(f.status)+'</span></td><td>'+esc(asgName(f.ownerEmpId))+'</td><td>'+esc(f.dueDate||'-')+'</td></tr>';}).join('')+'</tbody></table></div>';
+      $('main').innerHTML=h;
+    }
+    function asgName(id){var a=(DATA.boot.assignees||[]).filter(function(x){return x.id===id;})[0];return a?a.name:(id||'—');}
+
+    var _afterFiles=[];
+    function openEdit(fid){
+      busyOn('Loading…');
+      api('genbaGet',{findingId:fid}).then(function(r){
+        busyOff(); if(!r.ok){alert('not found');return;}
+        var f=r.finding, photos=r.photos||[]; _afterFiles=[];
+        var sel=function(id,arr,val){return '<select id="'+id+'">'+arr.map(function(x){return '<option'+(x===val?' selected':'')+'>'+esc(x)+'</option>';}).join('')+'</select>';};
+        var asg='<select id="eowner">'+DATA.boot.assignees.map(function(a){return '<option value="'+esc(a.id)+'"'+(a.id===f.ownerEmpId?' selected':'')+'>'+esc(a.name)+'</option>';}).join('')+'</select>';
+        var gal=function(arr){return arr.length?'<div class="gallery">'+arr.map(function(p){return '<img src="'+esc(thumb(p.url,300))+'" referrerpolicy="no-referrer">';}).join('')+'</div>':'<div class="empty" style="padding:6px">none</div>';};
+        var before=photos.filter(function(p){return p.phase==='before';}), after=photos.filter(function(p){return p.phase==='after';});
+        $('modal').innerHTML='<h2>Edit finding · '+esc(f.findingId)+'</h2>'+
+          '<label>Area</label>'+sel('earea',DATA.boot.areas,f.area)+
+          '<label>Category</label>'+sel('ecat',DATA.boot.categories,f.category)+
+          '<label>Severity</label>'+sel('esev',['Low','Medium','High'],f.severity)+
+          '<label>Description</label><textarea id="edesc">'+esc(f.description||'')+'</textarea>'+
+          '<label>Remark (repair / WO no.)</label><input id="eremark" value="'+esc(f.remark||'')+'">'+
+          '<label>Assigned group</label>'+asg+
+          '<label>Status</label>'+sel('estatus',['Open','In Progress','Done'],f.status==='Closed'?'Done':f.status)+
+          '<label>Due date</label><input type="date" id="edue" value="'+esc(f.dueDate||'')+'">'+
+          '<label>Before</label>'+gal(before)+'<label>After</label>'+gal(after)+
+          '<div id="athumb" class="gallery"></div>'+
+          '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">'+
+            '<button class="btn" onclick="saveEdit(\''+f.findingId+'\')">Save</button>'+
+            '<button class="btn sec" onclick="pickAfter(\''+f.findingId+'\')">+ After photo</button>'+
+            (f.status!=='Closed'&&DATA.boot.canClose?'<button class="btn green" onclick="closeFind(\''+f.findingId+'\')">Verify & Close</button>':'')+
+            '<button class="btn sec" onclick="closeModal()" style="margin-left:auto">Cancel</button>'+
+          '</div>';
+        $('overlay').style.display='flex';
+      });
+    }
+    function closeModal(){$('overlay').style.display='none';}
+    function saveEdit(fid){
+      if(BUSY)return;busyOn('Saving…');
+      var patch={Area:$('earea').value,Category:$('ecat').value,Severity:$('esev').value,Description:$('edesc').value,
+        Remark:$('eremark').value,OwnerEmpID:$('eowner').value,Status:$('estatus').value,DueDate:$('edue').value};
+      api('genbaEdit',{findingId:fid,patch:patch}).then(function(r){busyOff();if(!r.ok){alert(r.error||r.reason);return;}closeModal();reload();});
+    }
+    function pickAfter(fid){
+      var inp=document.createElement('input');inp.type='file';inp.accept='image/*';
+      inp.onchange=function(){var file=inp.files[0];if(!file)return;busyOn('Uploading…');
+        resize(file).then(function(b64){return api('genbaPhoto',{findingId:fid,phase:'after',base64:b64,mimeType:'image/jpeg'});})
+          .then(function(r){busyOff();if(!r.ok){alert(r.error||r.reason);return;}openEdit(fid);});};
+      inp.click();
+    }
+    function closeFind(fid){
+      if(BUSY)return;busyOn('Closing…');
+      api('genbaStatus',{findingId:fid,status:'Closed',note:''}).then(function(r){
+        busyOff();
+        if(!r.ok){alert(r.reason==='need_after_photo'?'ต้องมีรูป After อย่างน้อย 1 รูปก่อนปิด':(r.error||r.reason));return;}
+        closeModal();reload();
+      });
+    }
+    function resize(file){return new Promise(function(res,rej){var rd=new FileReader();rd.onload=function(e){var img=new Image();
+      img.onload=function(){var w=img.width,h=img.height,m=1280;if(w>h&&w>m){h=Math.round(h*m/w);w=m;}else if(h>m){w=Math.round(w*m/h);h=m;}
+        var c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);res(c.toDataURL('image/jpeg',0.7).split(',')[1]);};
+      img.onerror=rej;img.src=e.target.result;};rd.onerror=rej;rd.readAsDataURL(file);});}
+
+    /* ---------- Report (printable) ---------- */
+    function renderReport(){
+      var k=DATA.kpi, d=new Date();
+      $('main').innerHTML='<div class="card" id="reportArea">'+
+        '<h3 style="font-size:18px">Genba & 5S Report — '+d.toLocaleDateString()+'</h3>'+
+        '<p style="font-size:13px;color:var(--muted)">Filter: '+(($('fdept').value||'All dept')+' · '+($('farea').value||'All area'))+'</p>'+
+        '<div class="kpis">'+kpi('Open',k.open)+kpi('Overdue',k.overdue)+kpi('On-time %',k.onTimePct+'%')+kpi('Avg days',k.avgDays)+kpi('With WO',k.withWO)+'</div>'+
+        '<h3>Overdue findings</h3>'+overdueTable(DATA.overdueList)+
+        '<h3 style="margin-top:14px">Top recurring</h3>'+recurTable(DATA.topRecur)+
+        '</div>'+
+        '<button class="btn amber" style="margin-top:14px" onclick="window.print()">Print / Save PDF</button>';
+    }
+
+    boot();
+  </script>
+</body>
+</html>
