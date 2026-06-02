@@ -60,16 +60,18 @@
     function reauth(){if(sessionStorage.getItem('reauth')){$('main').innerHTML='<div class="empty">Session expired — close and reopen.</div>';return;}sessionStorage.setItem('reauth','1');try{liff.logout();}catch(e){}liff.login();}
 
     var CONFIG_SECTIONS=[
-      {key:'dept',title:'Departments',data:'depts',cols:['DeptID','DeptName'],add:[{f:'DeptID'},{f:'DeptName'}]},
-      {key:'emp',title:'Employees',data:'employees',cols:['EmpID','FullName','Dept','Position','Status'],toggle:true,
-        add:[{f:'EmpID'},{f:'FullName'},{f:'Dept',src:'depts',val:'DeptID',label:'DeptName'},{f:'Position'},{f:'Status',opts:['active','inactive']}]},
-      {key:'area',title:'Areas',data:'areas',cols:['AreaID','AreaName','Zone','OwnerDept'],
-        add:[{f:'AreaID'},{f:'AreaName'},{f:'Zone'},{f:'OwnerDept',src:'depts',val:'DeptID',label:'DeptName'}]},
-      {key:'cat',title:'5S Categories',data:'categories',cols:['CatID','CatName'],add:[{f:'CatID'},{f:'CatName'}]},
-      {key:'group',title:'Groups',data:'groups',cols:['GroupID','GroupName','OwnerDept'],
-        add:[{f:'GroupID'},{f:'GroupName'},{f:'OwnerDept',src:'depts',val:'DeptID',label:'DeptName'}]},
-      {key:'member',title:'Group Members',data:'members',cols:['GroupID','EmpID'],
-        add:[{f:'GroupID',src:'groups',val:'GroupID',label:'GroupName'},{f:'EmpID',src:'employees',val:'EmpID',label:'FullName'}]}
+      {key:'dept',title:'Departments',data:'depts',idField:'DeptID',cols:[
+        {f:'DeptID',id:true},{f:'DeptName'}]},
+      {key:'emp',title:'Employees',data:'employees',idField:'EmpID',cols:[
+        {f:'EmpID',id:true},{f:'FullName'},{f:'Dept',src:'depts',val:'DeptID',label:'DeptName'},{f:'Position'},{f:'Status',opts:['active','inactive']}]},
+      {key:'area',title:'Areas',data:'areas',idField:'AreaID',cols:[
+        {f:'AreaID',id:true},{f:'AreaName'},{f:'Zone'},{f:'OwnerDept',src:'depts',val:'DeptID',label:'DeptName'}]},
+      {key:'cat',title:'5S Categories',data:'categories',idField:'CatID',cols:[
+        {f:'CatID',id:true},{f:'CatName'}]},
+      {key:'group',title:'Groups',data:'groups',idField:'GroupID',cols:[
+        {f:'GroupID',id:true},{f:'GroupName'},{f:'OwnerDept',src:'depts',val:'DeptID',label:'DeptName'}]},
+      {key:'member',title:'Group Members',data:'members',idField:null,addonly:true,cols:[
+        {f:'GroupID',src:'groups',val:'GroupID',label:'GroupName'},{f:'EmpID',src:'employees',val:'EmpID',label:'FullName'}]}
     ];
 
     function boot(){
@@ -143,40 +145,44 @@
       if(secKey==='member'&&col==='EmpID')return E[val]||val;
       return val;
     }
-    function renderConfig(secKey){
-      var s=CONFIG_SECTIONS.filter(function(x){return x.key===secKey;})[0]; if(!s)return;
-      var rows=M[s.data]||[];
-      var head='<tr>'+s.cols.map(function(c){return '<th>'+c+'</th>';}).join('')+(s.toggle?'<th></th>':'')+'</tr>';
-      var body=rows.map(function(r){return '<tr>'+s.cols.map(function(c){return '<td>'+esc(resolveCell(s.key,c,r[c]))+'</td>';}).join('')+
-        (s.toggle?'<td><button class="btn gray sm" onclick="toggleEmp(\''+esc(r.EmpID)+'\',\''+esc(r.Status)+'\')">'+(String(r.Status).toLowerCase()==='active'?'Set inactive':'Set active')+'</button></td>':'')+'</tr>';}).join('');
-      var inputs=s.add.map(function(fd){return addField(s.key,fd);}).join('');
-      $('main').innerHTML='<h2>'+esc(s.title)+'</h2><div class="sub">'+addHint(s.key)+'</div>'+
-        '<div class="card"><table><thead>'+head+'</thead><tbody>'+(body||'')+'</tbody></table>'+
-        '<div class="addrow">'+inputs+'<button class="btn" onclick="addRow(\''+s.key+'\')">+ Add</button></div></div>';
+    function sec_(k){return CONFIG_SECTIONS.filter(function(x){return x.key===k;})[0];}
+    function fieldHtml(domId,c,cur,addMode){
+      if(c.opts) return '<select id="'+domId+'">'+(addMode?'':'')+c.opts.map(function(o){return '<option'+(o===cur?' selected':'')+'>'+esc(o)+'</option>';}).join('')+'</select>';
+      if(c.src){var list=M[c.src]||[];
+        return '<select id="'+domId+'">'+(addMode?'<option value="">'+esc(c.f)+'…</option>':'')+list.map(function(x){
+          var v=x[c.val];var lbl=c.label?x[c.label]:v;return '<option value="'+esc(v)+'"'+(String(v)===String(cur)?' selected':'')+'>'+esc(lbl)+'</option>';}).join('')+'</select>';}
+      return '<input id="'+domId+'" value="'+esc(cur||'')+'"'+(addMode?' placeholder="'+esc(c.f)+'"':'')+'>';
     }
-    function addHint(k){return k==='member'?'GroupID/EmpID เลือกจากรายการ':(k==='emp'||k==='area'||k==='group'?'ช่องที่ link เลือกจาก dropdown':'เพิ่มรายการใหม่');}
-    function addField(secKey,fd){
-      var id='add_'+secKey+'_'+fd.f;
-      if(fd.opts) return '<select id="'+id+'">'+fd.opts.map(function(o){return '<option>'+esc(o)+'</option>';}).join('')+'</select>';
-      if(fd.src){
-        var list=M[fd.src]||[];
-        return '<select id="'+id+'"><option value="">'+esc(fd.f)+'…</option>'+list.map(function(x){
-          var v=x[fd.val]; var lbl=fd.label?x[fd.label]:v; return '<option value="'+esc(v)+'">'+esc(lbl)+'</option>';}).join('')+'</select>';
-      }
-      return '<input id="'+id+'" placeholder="'+esc(fd.f)+'">';
+    function renderConfig(secKey){
+      var s=sec_(secKey); if(!s)return;
+      var rows=M[s.data]||[];
+      var head='<tr>'+s.cols.map(function(c){return '<th>'+c.f+'</th>';}).join('')+(s.addonly?'':'<th></th>')+'</tr>';
+      var body=rows.map(function(r){
+        var idv=s.idField?r[s.idField]:'';
+        var cells=s.cols.map(function(c){
+          if(c.id) return '<td><span style="color:var(--muted)"><i class="ti ti-lock" style="font-size:13px;vertical-align:-2px"></i> '+esc(r[c.f])+'</span></td>';
+          if(s.addonly) return '<td>'+esc(resolveCell(s.key,c.f,r[c.f]))+'</td>';
+          return '<td>'+fieldHtml('e_'+secKey+'_'+esc(idv)+'_'+c.f,c,r[c.f],false)+'</td>';
+        }).join('');
+        return '<tr>'+cells+(s.addonly?'':'<td><button class="btn sm" onclick="saveRow(\''+secKey+'\',\''+esc(idv)+'\')">Save</button></td>')+'</tr>';
+      }).join('');
+      var inputs=s.cols.map(function(c){return fieldHtml('add_'+secKey+'_'+c.f,c,'',true);}).join('');
+      $('main').innerHTML='<h2>'+esc(s.title)+'</h2><div class="sub">ID ล็อก 🔒 · แก้ description/dropdown ได้ · กด Save</div>'+
+        '<div class="card"><table><thead>'+head+'</thead><tbody>'+(body||'')+'</tbody></table>'+
+        '<div class="addrow">'+inputs+'<button class="btn" onclick="addRow(\''+secKey+'\')">+ Add</button></div></div>';
+    }
+    function saveRow(secKey,idv){
+      if(BUSY)return;var s=sec_(secKey);var patch={};
+      s.cols.forEach(function(c){if(c.id)return;patch[c.f]=$('e_'+secKey+'_'+idv+'_'+c.f).value;});
+      busyOn('Saving…');
+      api('cpUpdateRow',{table:secKey,idField:s.idField,idValue:idv,patch:patch}).then(function(r){busyOff();if(!r.ok){alert(r.error||r.reason);return;}M=null;loadConfig(secKey);});
     }
     function addRow(secKey){
-      if(BUSY)return;
-      var s=CONFIG_SECTIONS.filter(function(x){return x.key===secKey;})[0];
-      var values=s.add.map(function(fd){return $('add_'+secKey+'_'+fd.f).value;});
+      if(BUSY)return;var s=sec_(secKey);
+      var values=s.cols.map(function(c){return $('add_'+secKey+'_'+c.f).value;});
       if(!values[0]){alert('First field required');return;}
       busyOn('Adding…');
       api('cpAddRow',{table:secKey,values:values}).then(function(r){busyOff();if(!r.ok){alert(r.error||r.reason);return;}M=null;loadConfig(secKey);});
-    }
-    function toggleEmp(empId,cur){
-      if(BUSY)return;busyOn();
-      var nv=String(cur).toLowerCase()==='active'?'inactive':'active';
-      api('cpSetCell',{table:'emp',keyField:'EmpID',keyVal:empId,field:'Status',value:nv}).then(function(r){busyOff();if(!r.ok){alert(r.error||r.reason);return;}M=null;loadConfig('emp');});
     }
     boot();
   </script>
