@@ -82,11 +82,22 @@
       });
     }
 
+    function reauth(){
+      if(sessionStorage.getItem('reauth')){
+        show('<div class="state"><div class="ic">⚠️</div><h2>Session expired</h2><p>Please close and reopen this page.</p></div>');
+        return;
+      }
+      sessionStorage.setItem('reauth','1');
+      try{ liff.logout(); }catch(e){}
+      liff.login();
+    }
     function handleAccess(res){
+      if(res && res.error && /expired|IdToken|verify failed/i.test(res.error)){ reauth(); return; }
       if(!res || !res.ok){
         show('<div class="state"><div class="ic">⚠️</div><h2>Error</h2><p>'+((res&&res.error)||'unknown')+'</p></div>');
         return;
       }
+      sessionStorage.removeItem('reauth');
       var d = res.data;
       switch(d.state){
         case 'active':            renderHome(d); break;
