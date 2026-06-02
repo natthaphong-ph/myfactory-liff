@@ -57,10 +57,16 @@
         if(!liff.isLoggedIn()){liff.login();return;}
         idToken=liff.getIDToken();
         return api('getProfile').then(function(res){
+          if(res&&res.error&&/expired|IdToken|verify failed/i.test(res.error)){ reauth(); return; }
+          sessionStorage.removeItem('reauth');
           if(!res||!res.ok){main.innerHTML='<div class="empty">'+((res&&res.error)||'error')+'</div>';return;}
           P=res.data; render();
         });
       }).catch(function(e){main.innerHTML='<div class="empty">LINE error: '+e+'</div>';});
+    }
+    function reauth(){
+      if(sessionStorage.getItem('reauth')){main.innerHTML='<div class="empty">Session expired — close and reopen.</div>';return;}
+      sessionStorage.setItem('reauth','1'); try{liff.logout();}catch(e){} liff.login();
     }
 
     function badge(s){var c=s==='active'?'b-active':(s==='revoked'?'b-revoked':'b-pending');return '<span class="badge '+c+'">'+esc(s)+'</span>';}

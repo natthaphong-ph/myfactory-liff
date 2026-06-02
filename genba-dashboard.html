@@ -89,12 +89,17 @@
         return reload();
       }).catch(function(e){$('main').innerHTML='<div class="empty">LINE error: '+e+'</div>';});
     }
+    function reauth(){
+      if(sessionStorage.getItem('reauth')){$('main').innerHTML='<div class="empty">Session expired — close and reopen this page.</div>';return;}
+      sessionStorage.setItem('reauth','1'); try{liff.logout();}catch(e){} liff.login();
+    }
     function reload(){
       busyOn('Loading…');
       var filter={dept:$('fdept')?$('fdept').value:'',area:$('farea')?$('farea').value:'',assigned:$('fasg')?$('fasg').value:''};
       return api('genbaDashboard',{filter:filter}).then(function(r){
         busyOff();
-        if(r&&r.error&&/expired|IdToken/i.test(r.error)){ try{liff.login();}catch(e){location.reload();} return; }
+        if(r&&r.error&&/expired|IdToken|verify failed/i.test(r.error)){ reauth(); return; }
+        sessionStorage.removeItem('reauth');
         if(!r||!r.ok){$('main').innerHTML='<div class="empty">'+((r&&r.error)||'No dashboard access (need P_DASHBOARD)')+'</div>';$('filters').style.display='none';return;}
         DATA=r; $('who').textContent=r.boot.empName+' · '+(r.boot.perms||[]).length+' perms';
         buildFilters(); render();

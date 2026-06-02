@@ -117,11 +117,17 @@
         var tf=Date.now();
         return api('genbaInit').then(function(r){   // filter options + assignees + All list
           var tFetch=Date.now()-tf;
+          if(r&&r.error&&/expired|IdToken|verify failed/i.test(r.error)){ reauth(); return; }
+          sessionStorage.removeItem('reauth');
           if(!r||!r.ok){show('<div class="empty">'+((r&&r.error)||'No access to Genba')+'</div>');return;}
           BOOT=r.boot; buildAssigneeMap(); renderHome(r.findings);
           perfBadge(tInit,tFetch);
         });
       }).catch(function(e){show('<div class="empty">LINE error: '+e+'</div>');});
+    }
+    function reauth(){
+      if(sessionStorage.getItem('reauth')){show('<div class="empty">Session expired — close and reopen.</div>');return;}
+      sessionStorage.setItem('reauth','1'); try{liff.logout();}catch(e){} liff.login();
     }
 
     /* ---------- home (filters) ---------- */
