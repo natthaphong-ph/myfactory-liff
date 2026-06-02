@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My Factory — Control Panel</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    :root{--navy:#0F172A;--teal:#0D9488;--amber:#D97706;--snow:#FAFAFA;--charcoal:#1E293B;
+      --surface:#F1F5F9;--border:#E5E7EB;--red:#EF4444;--green:#10B981;--muted:#64748B;}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:"IBM Plex Sans Thai",sans-serif;background:var(--snow);color:var(--charcoal)}
+    header{background:var(--navy);color:#fff;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+    header h1{font-size:18px;margin:0;font-weight:600}.who{font-size:12px;color:#cbd5e1}
+    .wrap{max-width:1100px;margin:0 auto;padding:16px 20px}
+    .tabs{display:flex;gap:8px;margin-bottom:14px}
+    .tab{padding:9px 16px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer;font-size:14px}
+    .tab.active{background:var(--teal);color:#fff;border-color:var(--teal)}
+    .card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px}
+    .card h3{font-size:14px;margin:0 0 10px;color:var(--navy);font-weight:600}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th,td{text-align:left;padding:7px 6px;border-bottom:1px solid var(--border)}
+    th{color:var(--muted);font-size:11px;text-transform:uppercase}
+    input,select{padding:7px;border:1px solid var(--border);border-radius:7px;font-size:13px;width:100%}
+    .btn{border:none;border-radius:7px;padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer;color:#fff;background:var(--teal)}
+    .btn.sm{padding:5px 10px;font-size:12px}.btn.green{background:var(--green)}.btn.red{background:var(--red)}.btn.gray{background:var(--muted)}
+    .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600}
+    .b-active{background:#ECFDF5;color:var(--green)}.b-pending{background:#FFFBEB;color:var(--amber)}.b-revoked{background:#FEF2F2;color:var(--red)}
+    .addrow{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center}
+    .addrow input{flex:1;min-width:90px}
+    .busy{position:fixed;inset:0;background:rgba(250,250,250,.7);display:none;align-items:center;justify-content:center;z-index:50;font-weight:600;color:var(--navy)}
+    .empty{color:var(--muted);font-size:13px;text-align:center;padding:20px}
+  </style>
+</head>
+<body>
+  <header><h1>My Factory — Control Panel</h1><span class="who" id="who"></span></header>
+  <div class="wrap">
+    <div class="tabs" id="tabs"></div>
+    <div id="main"><div class="empty">Connecting to LINE…</div></div>
+  </div>
+  <div class="busy" id="busy">Working…</div>
+  <script>
+    var LIFF_ID='2010250488-MyQiwlFp';
+    var API_URL='https://script.google.com/macros/s/AKfycbyRJP-fDdUKFkAd5LmdBUXVM6wAb83i2leOueJ-d1Uw_czlnujTq-csD2WGGkkxcNWE/exec';
+    var idToken=null, BOOT=null, M=null, TAB='kyc', BUSY=false;
+    var $=function(id){return document.getElementById(id);};
+    function busyOn(m){BUSY=true;$('busy').textContent=m||'Working…';$('busy').style.display='flex';}
+    function busyOff(){BUSY=false;$('busy').style.display='none';}
+    function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+    function api(action,extra){return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify(Object.assign({action:action,idToken:idToken},extra||{}))}).then(function(r){return r.json();});}
+    function reauth(){if(sessionStorage.getItem('reauth')){$('main').innerHTML='<div class="empty">Session expired — close and reopen.</div>';return;}
+      sessionStorage.setItem('reauth','1');try{liff.logout();}catch(e){}liff.login();}
+
+    function boot(){
+      liff.init({liffId:LIFF_ID}).then(function(){
+        if(!liff.isLoggedIn()){liff.login();return;}
+        idToken=liff.getIDToken();
+        return api('cpBoot').then(function(r){
+          if(r&&r.error&&/expired|IdToken|verify failed/i.test(r.error)){reauth();return;}
+          sessionStorage.removeItem('reauth');
+          if(!r||!r.ok){$('main').innerHTML='<div class="empty">'+((r&&r.error)||'No Control Panel access')+'</div>';return;}
+          BOOT=r; $('who').textContent=r.empName;
+          var t=''; if(r.canApprove)t+='<div class="tab" data-t="kyc" onclick="switchTab(\'kyc\')">KYC Approval</div>';
+          if(r.canConfig)t+='<div class="tab" data-t="masters" onclick="switchTab(\'masters\')">Masters</div>';
+          $('tabs').innerHTML=t;
+          TAB=r.canApprove?'kyc':'masters'; switchTab(TAB);
+        });
+      }).catch(function(e){$('main').innerHTML='<div class="empty">LINE error: '+e+'</div>';});
+    }
+    function switchTab(t){TAB=t;document.querySelectorAll('.tab').forEach(function(e){e.classList.toggle('active',e.dataset.t===t);});
+      if(t==='kyc')renderKyc(); else loadMasters();}
+
+    function renderKyc(){
+      var rows=BOOT.kyc||[];
+      var pend=rows.filter(function(r){return r.KycStatus==='pending';});
+      var h='<div class="card"><h3>Pending KYC ('+pend.length+')</h3>'+kycTable(pend,true)+'</div>'+
+            '<div class="card"><h3>All KYC</h3>'+kycTable(rows,false)+'</div>';
+      $('main').innerHTML=h;
+    }
+    function badge(s){var c=s==='active'?'b-active':(s==='revoked'?'b-revoked':'b-pending');return '<span class="badge '+c+'">'+esc(s)+'</span>';}
+    function kycTable(rows,pendingOnly){
+      if(!rows.length)return '<div class="empty">None</div>';
+      return '<table><thead><tr><th>EmpID</th><th>LINE name</th><th>Status</th><th></th></tr></thead><tbody>'+
+        rows.map(function(r){return '<tr><td>'+esc(r.EmpID)+'</td><td>'+esc(r.DisplayName)+'</td><td>'+badge(r.KycStatus)+'</td><td>'+
+          (r.KycStatus!=='active'?'<button class="btn green sm" onclick="kyc(\'approve\',\''+esc(r.KycID)+'\')">Approve</button> ':'')+
+          (r.KycStatus!=='revoked'?'<button class="btn red sm" onclick="kyc(\'revoke\',\''+esc(r.KycID)+'\')">Revoke</button>':'')+
+          '</td></tr>';}).join('')+'</tbody></table>';
+    }
+    function kyc(act,kycId){
+      if(BUSY)return;busyOn();
+      api(act==='approve'?'cpKycApprove':'cpKycRevoke',{kycId:kycId}).then(function(r){
+        busyOff(); if(!r.ok){alert(r.error||r.reason);return;}
+        api('cpBoot').then(function(b){if(b.ok){BOOT=b;renderKyc();}});
+      });
+    }
+
+    var SECTIONS=[
+      {key:'emp',title:'Employees',data:'employees',cols:['EmpID','FullName','Dept','Position','Status'],add:['EmpID','FullName','Dept','Position','Status'],toggle:true},
+      {key:'dept',title:'Departments',data:'depts',cols:['DeptID','DeptName'],add:['DeptID','DeptName']},
+      {key:'area',title:'Areas',data:'areas',cols:['AreaID','AreaName','Zone','OwnerDept'],add:['AreaID','AreaName','Zone','OwnerDept']},
+      {key:'cat',title:'5S Categories',data:'categories',cols:['CatID','CatName'],add:['CatID','CatName']},
+      {key:'group',title:'Groups',data:'groups',cols:['GroupID','GroupName','OwnerDept'],add:['GroupID','GroupName','OwnerDept']},
+      {key:'member',title:'Group Members',data:'members',cols:['GroupID','EmpID'],add:['GroupID','EmpID']}
+    ];
+    function loadMasters(){
+      busyOn('Loading…');
+      api('cpMasters').then(function(r){busyOff();
+        if(!r.ok){$('main').innerHTML='<div class="empty">'+(r.error||'error')+'</div>';return;}
+        M=r; $('main').innerHTML=SECTIONS.map(section).join('');
+      });
+    }
+    function section(s){
+      var rows=M[s.data]||[];
+      var head='<tr>'+s.cols.map(function(c){return '<th>'+c+'</th>';}).join('')+(s.toggle?'<th></th>':'')+'</tr>';
+      var body=rows.map(function(r){
+        return '<tr>'+s.cols.map(function(c){return '<td>'+esc(r[c])+'</td>';}).join('')+
+          (s.toggle?'<td><button class="btn gray sm" onclick="toggleEmp(\''+esc(r.EmpID)+'\',\''+esc(r.Status)+'\')">'+(String(r.Status).toLowerCase()==='active'?'Set inactive':'Set active')+'</button></td>':'')+'</tr>';
+      }).join('');
+      var addInputs=s.add.map(function(f){return '<input id="add_'+s.key+'_'+f+'" placeholder="'+f+'">';}).join('');
+      return '<div class="card"><h3>'+s.title+' ('+rows.length+')</h3>'+
+        '<table><thead>'+head+'</thead><tbody>'+body+'</tbody></table>'+
+        '<div class="addrow">'+addInputs+'<button class="btn sm" onclick="addRow(\''+s.key+'\')">Add</button></div></div>';
+    }
+    function addRow(key){
+      if(BUSY)return;
+      var s=SECTIONS.filter(function(x){return x.key===key;})[0];
+      var values=s.add.map(function(f){return $('add_'+key+'_'+f).value;});
+      if(!values[0]){alert('First field is required');return;}
+      busyOn('Adding…');
+      api('cpAddRow',{table:key,values:values}).then(function(r){busyOff();if(!r.ok){alert(r.error||r.reason);return;}loadMasters();});
+    }
+    function toggleEmp(empId,cur){
+      if(BUSY)return;busyOn();
+      var nv=String(cur).toLowerCase()==='active'?'inactive':'active';
+      api('cpSetCell',{table:'emp',keyField:'EmpID',keyVal:empId,field:'Status',value:nv}).then(function(r){busyOff();if(!r.ok){alert(r.error||r.reason);return;}loadMasters();});
+    }
+    boot();
+  </script>
+</body>
+</html>
