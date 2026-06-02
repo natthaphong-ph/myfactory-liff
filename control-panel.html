@@ -74,6 +74,21 @@
         {f:'GroupID',src:'groups',val:'GroupID',label:'GroupName'},{f:'EmpID',src:'employees',val:'EmpID',label:'FullName'}]}
     ];
 
+    /* Access control (separate P_GRANT permission — separation of duties) */
+    var ACCESS_SECTIONS=[
+      {key:'userrole',title:'User → Role',data:'userRoles',idField:null,addonly:true,cols:[
+        {f:'EmpID',src:'employees',val:'EmpID',label:'FullName'},
+        {f:'RoleID',src:'roles',val:'RoleID',label:'RoleName'}]},
+      {key:'roleperm',title:'Role → Permission',data:'rolePerms',idField:null,addonly:true,cols:[
+        {f:'RoleID',src:'roles',val:'RoleID',label:'RoleName'},
+        {f:'AppID',src:'apps',val:'AppID',label:'AppName'},
+        {f:'PermID',src:'permissions',val:'PermID',label:'PermName'}]},
+      {key:'role',title:'Roles',data:'roles',idField:'RoleID',cols:[
+        {f:'RoleID',id:true},{f:'RoleName'},{f:'Description'}]},
+      {key:'app',title:'Apps',data:'apps',idField:'AppID',noadd:true,cols:[
+        {f:'AppID',id:true},{f:'AppName'},{f:'AppURL'},{f:'Status',opts:['on','off']}]}
+    ];
+
     function boot(){
       liff.init({liffId:LIFF_ID}).then(function(){
         if(!liff.isLoggedIn()){liff.login();return;}
@@ -83,7 +98,8 @@
           sessionStorage.removeItem('reauth');
           if(!r||!r.ok){$('main').innerHTML='<div class="empty">'+((r&&r.error)||'No Control Panel access')+'</div>';return;}
           BOOT=r; $('who').textContent=r.empName; buildNav();
-          SEC=r.canApprove?'kyc':(r.canDashboard?'report':'dept'); show(SEC);
+          SEC=r.canApprove?'kyc':(r.canDashboard?'report':(r.canConfig?'dept':(r.canGrant?'userrole':null)));
+          if(SEC)show(SEC); else $('main').innerHTML='<div class="empty">No Control Panel access</div>';
         });
       }).catch(function(e){$('main').innerHTML='<div class="empty">LINE error: '+e+'</div>';});
     }
@@ -93,6 +109,8 @@
       if(BOOT.canDashboard){h+='<div class="grp">Dashboard & Report</div><div class="grpd">รายงาน & แดชบอร์ด</div>'+navItem('report','ti','System reports');}
       if(BOOT.canConfig){h+='<div class="grp">Configuration</div><div class="grpd">ตั้งค่าระบบ (เรียงตามลำดับ)</div>'+
         CONFIG_SECTIONS.map(function(s,i){return navItem(s.key,(i+1),s.title);}).join('');}
+      if(BOOT.canGrant){h+='<div class="grp">Access control</div><div class="grpd">กำหนดสิทธิผู้ใช้งาน (เฉพาะผู้ดูแลระบบ)</div>'+
+        ACCESS_SECTIONS.map(function(s){return navItem(s.key,'ti',s.title);}).join('');}
       $('nav').innerHTML=h;
     }
     function navItem(key,n,label){return '<div class="nav" data-k="'+key+'" onclick="show(\''+key+'\')"><span class="n">'+(n==='ti'?'·':n)+'</span>'+esc(label)+'</div>';}
@@ -132,20 +150,35 @@
     function link(url,t,d){return '<a class="linkrow" href="'+esc(url)+'" target="_blank" rel="noopener"><div class="t"><b>'+esc(t)+'</b><br><span>'+esc(d)+'</span></div>↗</a>';}
 
     /* ---- Configuration ---- */
+    function mergeAccess(a){if(a&&a.ok){M.roles=a.roles;M.permissions=a.permissions;M.apps=a.apps;M.userRoles=a.userRoles;M.rolePerms=a.rolePerms;if(!M.employees)M.employees=a.employees;}}
     function loadConfig(secKey){
       if(M){renderConfig(secKey);return;}
       busyOn('Loading…');
-      api('cpMasters').then(function(r){busyOff();if(!r.ok){$('main').innerHTML='<div class="empty">'+(r.error||'error')+'</div>';return;}M=r;renderConfig(secKey);});
+      function fail(e){busyOff();$('main').innerHTML='<div class="empty">'+esc(e||'error')+'</div>';}
+      function done(){busyOff();renderConfig(secKey);}
+      if(BOOT.canConfig){
+        api('cpMasters').then(function(r){
+          if(!r.ok){fail(r.error);return;} M=r;
+          if(BOOT.canGrant){api('cpAccess').then(function(a){mergeAccess(a);done();});} else done();
+        });
+      } else if(BOOT.canGrant){
+        api('cpAccess').then(function(a){if(!a.ok){fail(a.error);return;}M={};mergeAccess(a);done();});
+      } else fail('No config access');
     }
     function dmap(arr,k,v){var o={};(arr||[]).forEach(function(x){o[x[k]]=x[v];});return o;}
     function resolveCell(secKey,col,val){
       var D=dmap(M.depts,'DeptID','DeptName'), G=dmap(M.groups,'GroupID','GroupName'), E=dmap(M.employees,'EmpID','FullName');
+      var R=dmap(M.roles,'RoleID','RoleName'), P=dmap(M.permissions,'PermID','PermName'), A=dmap(M.apps,'AppID','AppName');
       if((secKey==='emp'&&col==='Dept')||((secKey==='area'||secKey==='group')&&col==='OwnerDept'))return D[val]||val||'-';
       if(secKey==='member'&&col==='GroupID')return G[val]||val;
       if(secKey==='member'&&col==='EmpID')return E[val]||val;
+      if(secKey==='userrole'&&col==='EmpID')return E[val]||val;
+      if((secKey==='userrole'||secKey==='roleperm')&&col==='RoleID')return R[val]||val;
+      if(secKey==='roleperm'&&col==='AppID')return A[val]||val;
+      if(secKey==='roleperm'&&col==='PermID')return P[val]||val;
       return val;
     }
-    function sec_(k){return CONFIG_SECTIONS.filter(function(x){return x.key===k;})[0];}
+    function sec_(k){return CONFIG_SECTIONS.concat(ACCESS_SECTIONS).filter(function(x){return x.key===k;})[0];}
     function fieldHtml(domId,c,cur,addMode){
       if(c.opts) return '<select id="'+domId+'">'+(addMode?'':'')+c.opts.map(function(o){return '<option'+(o===cur?' selected':'')+'>'+esc(o)+'</option>';}).join('')+'</select>';
       if(c.src){var list=M[c.src]||[];
@@ -167,9 +200,10 @@
         return '<tr>'+cells+(s.addonly?'':'<td><button class="btn sm" onclick="saveRow(\''+secKey+'\',\''+esc(idv)+'\')">Save</button></td>')+'</tr>';
       }).join('');
       var inputs=s.cols.map(function(c){return fieldHtml('add_'+secKey+'_'+c.f,c,'',true);}).join('');
-      $('main').innerHTML='<h2>'+esc(s.title)+'</h2><div class="sub">ID ล็อก 🔒 · แก้ description/dropdown ได้ · กด Save</div>'+
-        '<div class="card"><table><thead>'+head+'</thead><tbody>'+(body||'')+'</tbody></table>'+
-        '<div class="addrow">'+inputs+'<button class="btn" onclick="addRow(\''+secKey+'\')">+ Add</button></div></div>';
+      var addrow=s.noadd?'':'<div class="addrow">'+inputs+'<button class="btn" onclick="addRow(\''+secKey+'\')">+ Add</button></div>';
+      var hint=s.addonly?'เพิ่มได้ · แสดงเป็นชื่อ (เก็บเป็น ID)':'ID ล็อก 🔒 · แก้ description/dropdown ได้ · กด Save';
+      $('main').innerHTML='<h2>'+esc(s.title)+'</h2><div class="sub">'+hint+'</div>'+
+        '<div class="card"><table><thead>'+head+'</thead><tbody>'+(body||'')+'</tbody></table>'+addrow+'</div>';
     }
     function saveRow(secKey,idv){
       if(BUSY)return;var s=sec_(secKey);var patch={};
