@@ -10,6 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3/dist/tabler-icons.min.css">
   <style>
     /* ---- Brand theming: map Pico's variables to My Factory palette ---- */
     :root{
@@ -165,11 +166,16 @@
       show('<article class="state"><div class="ic">⛔</div><h2>'+esc(title)+'</h2><p>'+esc(sub)+'</p></article>');
     }
 
+    var APP_ICONS = { APP_KYC:'ti-id-badge-2', APP_GENBA:'ti-clipboard-check', APP_ADMIN:'ti-settings', APP_CHECKIN:'ti-clock-hour-4' };
+    function appIcon(a){
+      var t = APP_ICONS[a.appId] || (a.icon && /^ti-/.test(a.icon) ? a.icon : 'ti-apps');
+      return '<i class="ti '+t+'"></i>';
+    }
     function renderHome(d){
       var apps = d.apps || [];
       var tiles = apps.length ? apps.map(function(a){
         var href = (a.url && a.url.indexOf('http')===0) ? a.url : '#';
-        return '<a class="tile" href="'+href+'"><span class="ic">▣</span><span>'+esc(a.appName)+'</span></a>';
+        return '<a class="tile" href="'+href+'"><span class="ic">'+appIcon(a)+'</span><span>'+esc(a.appName)+'</span></a>';
       }).join('') : '<p style="color:var(--muted);font-size:13px">ยังไม่ได้รับสิทธิแอปใด</p>';
       show(
         '<div class="hello">ยินดีต้อนรับ <b>'+esc(d.empName||d.displayName)+'</b>'+(d.dept?(' · '+esc(d.dept)):'')+'</div>'+
