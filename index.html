@@ -50,7 +50,8 @@
     .err{color:var(--red);font-size:13px;margin-top:8px;text-align:center}
     .spin{display:flex;justify-content:center;padding:28px}
     /* shrink Pico's default input/button footprint a touch for mobile */
-    input{margin-bottom:0}
+    input,select,textarea{margin-bottom:0;color:#1E293B!important;--pico-form-element-color:#1E293B;font-weight:500}
+    input::placeholder,textarea::placeholder{color:#94A3B8!important;font-weight:400}
     label{font-size:13px;color:var(--muted);margin-bottom:6px}
   </style>
 </head>
