@@ -87,10 +87,14 @@
       return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
         body:JSON.stringify(Object.assign({action:action,idToken:idToken},extra||{}))}).then(function(r){return r.json();});
     }
-    /* sessionStorage cache (stale-while-revalidate) — instant re-open within TTL */
-    function ssGet(key,ttlSec){try{var o=JSON.parse(sessionStorage.getItem(key)||'null');
+    /* localStorage cache (stale-while-revalidate) — instant open even across sessions.
+       Namespaced + TTL; cleared on logout/reauth so no previous user's data lingers. */
+    var LC='mfc_';
+    function lcGet(key,ttlSec){try{var o=JSON.parse(localStorage.getItem(LC+key)||'null');
       if(o&&(Date.now()-o.t)<ttlSec*1000)return o.d;}catch(e){}return null;}
-    function ssPut(key,data){try{sessionStorage.setItem(key,JSON.stringify({t:Date.now(),d:data}));}catch(e){}}
+    function lcPut(key,data){try{localStorage.setItem(LC+key,JSON.stringify({t:Date.now(),d:data}));}catch(e){}}
+    function lcDel(key){try{localStorage.removeItem(LC+key);}catch(e){}}
+    function lcClear(){try{Object.keys(localStorage).forEach(function(k){if(k.indexOf(LC)===0)localStorage.removeItem(k);});}catch(e){}}
     function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
     function show(h){main.innerHTML=h;}
     function setTitle(t){document.getElementById('title').textContent=t;}
@@ -150,8 +154,8 @@
         tInit=Date.now()-t0;
         if(!liff.isLoggedIn()){liff.login();return;}
         idToken=liff.getIDToken();
-        // SWR: paint instantly from cache, then revalidate in the background
-        var cached=ssGet('genbaInit',90);
+        // SWR: paint instantly from cache (persists across sessions), then revalidate
+        var cached=lcGet('genbaInit',300);   // 5-min TTL
         if(cached&&cached.boot){ BOOT=cached.boot; buildAssigneeMap(); renderHome(cached.findings||[]); }
         var tf=Date.now();
         return api('genbaInit').then(function(r){   // filter options + assignees + All list
@@ -159,7 +163,7 @@
           if(r&&(r.code||r.error)&&/expired|IdToken|verify failed/i.test(r.code||r.error)){ reauth(); return; }
           sessionStorage.removeItem('reauth');
           if(!r||!r.ok){ if(!cached) show('<div class="empty">'+esc((r&&r.error)||'No access to Genba')+'</div>'); return; }
-          ssPut('genbaInit',{boot:r.boot,findings:r.findings});
+          lcPut('genbaInit',{boot:r.boot,findings:r.findings});
           BOOT=r.boot; buildAssigneeMap();
           if(!FILTERED) renderHome(r.findings);   // refresh list only if user hasn't filtered meanwhile
           if(!cached) perfBadge(tInit,tFetch);
@@ -167,7 +171,8 @@
       }).catch(function(e){show('<div class="empty">LINE error: '+esc(e)+'</div>');});
     }
     function reauth(){
-      if(sessionStorage.getItem('reauth')){show('<div class="empty">Session expired — close and reopen.</div>');return;}
+      lcClear();   // drop cached data so the next login never shows a previous user's data
+      if(sessionStorage.getItem('reauth')){show('<div class="empty">เซสชันหมดอายุ — ปิดแล้วเปิดใหม่</div>');return;}
       sessionStorage.setItem('reauth','1'); try{liff.logout();}catch(e){} liff.login();
     }
 
@@ -229,7 +234,7 @@
       var m=document.getElementById('more'); if(!m)return;
       m.innerHTML=has?'<button class="btn sec" style="margin-top:4px" onclick="loadMore()">Load more</button>':'';
     }
-    function renderList(){ sessionStorage.removeItem('genbaInit'); renderHome([]); applyFilter(); }   // refresh after actions
+    function renderList(){ lcDel('genbaInit'); renderHome([]); applyFilter(); }   // refresh after actions
     function thumb(url,w){ return url ? url.replace('/uc?id=','/thumbnail?id=')+'&sz=w'+(w||200) : ''; }
     function card(f){
       var img=f.cover?'<img src="'+esc(thumb(f.cover,200))+'" referrerpolicy="no-referrer" loading="lazy">':'<div class="ph">no photo</div>';
@@ -277,27 +282,61 @@
     }
     function rmFile(i){beforeFiles.splice(i,1);renderThumbs();}
 
+    /* ---------- toast (corner notification) ---------- */
+    function toast(msg,opts){
+      opts=opts||{};
+      var t=document.getElementById('toast');
+      if(!t){t=document.createElement('div');t.id='toast';
+        t.style.cssText='position:fixed;left:50%;bottom:18px;transform:translateX(-50%);max-width:90%;font-size:13px;font-weight:600;padding:11px 16px;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.25);z-index:80;text-align:center;color:#fff';
+        document.body.appendChild(t);}
+      t.style.background=opts.error?'#B91C1C':(opts.ok?'#0F766E':'#0F172A');
+      t.style.cursor=opts.retry?'pointer':'default';
+      t.innerHTML=esc(msg)+(opts.retry?' <u style="margin-left:6px">ลองใหม่</u>':'');
+      t.onclick=opts.retry||null;
+      t.style.display='block';
+      if(t._tm)clearTimeout(t._tm);
+      if(opts.ttl)t._tm=setTimeout(function(){t.style.display='none';},opts.ttl);
+    }
+    function hideToast(){var t=document.getElementById('toast');if(t)t.style.display='none';}
+
+    /* Create the finding (fast), return the user to the list immediately, then
+       upload the before-photos in the BACKGROUND. The finding row already exists,
+       so a failed photo is non-destructive and retryable from the toast. */
     function saveFinding(){
       if(BUSY)return;
       var err=document.getElementById('err');
-      if(!beforeFiles.length){err.textContent='At least 1 before photo is required.';return;}
-      var btn=document.getElementById('save');btn.disabled=true;btn.textContent='Saving…'; busyOn('Saving finding…');
+      if(!beforeFiles.length){err.textContent='ต้องมีรูป Before อย่างน้อย 1 รูป';return;}
+      var btn=document.getElementById('save');btn.disabled=true;btn.textContent='กำลังบันทึก…'; busyOn('กำลังบันทึก…');
       var payload={area:val('area'),category:val('cat'),severity:val('sev'),
         description:val('desc'),remark:val('remark'),ownerEmpId:val('owner'),dueDate:val('due')};
+      var files=beforeFiles.slice();
       api('genbaCreate',{payload:payload}).then(function(r){
-        if(!r.ok){busyOff();btn.disabled=false;btn.textContent='Submit finding';err.textContent=r.error||r.reason||'error';return;}
-        uploadSequential(r.findingId,beforeFiles.slice(),'before',0,btn,err);
+        busyOff();
+        if(!r.ok){btn.disabled=false;btn.textContent='Submit finding';err.textContent=r.error||r.reason||'error';return;}
+        beforeFiles=[]; lcDel('genbaInit');
+        renderList();                                   // back to list right away
+        uploadBackground(r.findingId, files, 0);        // photos upload in background
       });
     }
-    function uploadSequential(fid,files,phase,i,btn,err){
-      if(i>=files.length){busyOff();renderList();return;}
-      busyOn('Uploading '+(i+1)+'/'+files.length+'…');
-      resize(files[i].file).then(function(b64){
-        return api('genbaPhoto',{findingId:fid,phase:phase,base64:b64,mimeType:'image/jpeg'});
-      }).then(function(r){
-        if(!r.ok){busyOff();btn.disabled=false;btn.textContent='Retry';err.textContent=r.error||r.reason||'upload error';return;}
-        uploadSequential(fid,files,phase,i+1,btn,err);
-      });
+    function uploadBackground(fid,files,startIdx){
+      function step(i){
+        if(i>=files.length){
+          toast('อัปโหลดรูปเสร็จ ✓',{ok:true,ttl:2500});
+          lcDel('genbaInit');
+          if(document.getElementById('title')&&document.getElementById('title').textContent==='Genba & 5S Walk') renderList();
+          return;
+        }
+        toast('บันทึกแล้ว — กำลังอัปโหลดรูป '+(i+1)+'/'+files.length+'…');
+        resize(files[i].file).then(function(b64){
+          return api('genbaPhoto',{findingId:fid,phase:'before',base64:b64,mimeType:'image/jpeg'});
+        }).then(function(r){
+          if(!r||!r.ok){ toast('อัปโหลดรูปที่ '+(i+1)+' ไม่สำเร็จ — แตะเพื่อลองใหม่',
+            {error:true,retry:function(){hideToast();uploadBackground(fid,files,i);}}); return; }
+          step(i+1);
+        }).catch(function(){ toast('อัปโหลดรูปไม่สำเร็จ — แตะเพื่อลองใหม่',
+          {error:true,retry:function(){hideToast();uploadBackground(fid,files,i);}}); });
+      }
+      step(startIdx||0);
     }
     function val(id){return document.getElementById(id).value;}
 
@@ -367,7 +406,7 @@
       if(BUSY)return; BUSY=true;
       var b=document.querySelector('.badge'); var pT=b?b.textContent:'', pC=b?b.className:'';
       if(b){b.textContent=status;b.className='badge s-'+status.replace(/\s/g,'');}
-      sessionStorage.removeItem('genbaInit');                 // list now stale
+      lcDel('genbaInit');                 // list now stale
       api('genbaStatus',{findingId:fid,status:status}).then(function(r){
         BUSY=false;
         if(!r.ok){ if(b){b.textContent=pT;b.className=pC;} alert(r.error||r.reason||'error'); return; }
@@ -378,7 +417,7 @@
       if(BUSY)return; BUSY=true;
       var v=document.getElementById('remarkEdit').value;
       var btn=(window.event&&window.event.target)||null; if(btn){btn.textContent='Saved ✓';}
-      sessionStorage.removeItem('genbaInit');
+      lcDel('genbaInit');
       api('genbaRemark',{findingId:fid,remark:v}).then(function(r){
         BUSY=false;
         if(!r.ok){ if(btn)btn.textContent='Save remark'; alert(r.error||r.reason||'error'); }
