@@ -7,10 +7,18 @@
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <!-- Self-hosted image compressor (vendored in repo; no CDN dependency). Global: imageCompression -->
   <script src="browser-image-compression.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3/dist/tabler-icons.min.css">
   <style>
     :root{--navy:#0F172A;--teal:#0D9488;--amber:#D97706;--snow:#FAFAFA;--charcoal:#1E293B;
-      --surface:#F1F5F9;--border:#E5E7EB;--red:#EF4444;--green:#10B981;--muted:#64748B;}
+      --surface:#F1F5F9;--border:#E5E7EB;--red:#EF4444;--green:#10B981;--muted:#64748B;
+      --pico-font-family:"IBM Plex Sans Thai",system-ui,sans-serif;--pico-primary:#0D9488;
+      --pico-primary-background:#0D9488;--pico-primary-hover-background:#0b7a70;--pico-border-radius:10px;}
     *{box-sizing:border-box}
+    /* keep our compact custom controls — neutralise Pico's default form spacing */
+    input,select,textarea,button{margin-bottom:0;--pico-line-height:1.4}
     body{margin:0;font-family:"IBM Plex Sans Thai",sans-serif;background:var(--snow);color:var(--charcoal)}
     .app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
     header{background:var(--navy);color:#fff;padding:14px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:5}
@@ -57,10 +65,10 @@
 </head>
 <body>
   <div class="app">
-    <header><span class="bk" id="back" onclick="goBack()">‹</span><h1 id="title">Genba & 5S Walk</h1></header>
+    <header><span class="bk" id="back" onclick="goBack()"><i class="ti ti-chevron-left"></i></span><h1 id="title">Genba & 5S Walk</h1></header>
     <main id="main"><div class="spinner"></div></main>
   </div>
-  <button class="fab hidden" id="fab" onclick="showForm()">+ New</button>
+  <button class="fab hidden" id="fab" onclick="showForm()"><i class="ti ti-plus" style="vertical-align:-2px"></i> New</button>
 
   <script>
     /* ===== CONFIG (same LIFF app + API as the super app) ===== */

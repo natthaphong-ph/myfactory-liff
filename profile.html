@@ -1,44 +1,51 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="th" data-theme="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
   <title>My Profile</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3/dist/tabler-icons.min.css">
   <style>
-    :root{--navy:#0F172A;--teal:#0D9488;--amber:#D97706;--snow:#FAFAFA;--charcoal:#1E293B;
-      --surface:#F1F5F9;--border:#E5E7EB;--red:#EF4444;--green:#10B981;--muted:#64748B;}
-    *{box-sizing:border-box}
-    body{margin:0;font-family:"IBM Plex Sans Thai",sans-serif;background:var(--snow);color:var(--charcoal)}
+    :root{
+      --pico-font-family:"IBM Plex Sans Thai",system-ui,-apple-system,sans-serif;
+      --pico-primary:#0D9488;--pico-primary-background:#0D9488;--pico-primary-hover-background:#0b7a70;
+      --pico-primary-focus:rgba(13,148,136,.25);--pico-border-radius:12px;--pico-spacing:1rem;
+      --navy:#0F172A;--teal:#0D9488;--amber:#D97706;--muted:#64748B;--border:#E5E7EB;
+      --snow:#FAFAFA;--charcoal:#1E293B;--red:#EF4444;--green:#10B981;--surface:#F1F5F9;
+    }
+    body{background:var(--snow)}
     .app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
-    header{background:var(--navy);color:#fff;padding:16px;text-align:center}
-    header h1{font-size:17px;margin:0;font-weight:600}
-    header p{margin:4px 0 0;font-size:12px;color:#cbd5e1}
-    main{flex:1;padding:16px}
-    .card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:14px}
-    .name{font-size:20px;font-weight:700;color:var(--navy)}
+    header.bar{background:var(--navy);color:#fff;padding:18px 16px;text-align:center}
+    header.bar h1{font-size:18px;margin:0;font-weight:500;color:#fff}
+    header.bar p{margin:4px 0 0;font-size:12px;color:#cbd5e1}
+    main.wrap{flex:1;padding:16px}
+    .card{background:#fff;border:0.5px solid var(--border);border-radius:14px;padding:16px;margin-bottom:14px;
+      box-shadow:0 1px 3px rgba(15,23,42,.04)}
+    .name{font-size:20px;font-weight:600;color:var(--navy)}
     .sub{font-size:13px;color:var(--muted);margin-top:2px}
     .row{display:flex;justify-content:space-between;font-size:14px;padding:8px 0;border-bottom:1px solid var(--surface)}
     .row:last-child{border-bottom:none}
-    .row .k{color:var(--muted)} .row .v{font-weight:600;color:var(--charcoal);text-align:right}
-    .badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:700}
+    .row .k{color:var(--muted)} .row .v{font-weight:500;color:var(--charcoal);text-align:right}
+    .badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600}
     .b-active{background:#ECFDF5;color:var(--green)} .b-pending{background:#FFFBEB;color:var(--amber)}
     .b-revoked{background:#FEF2F2;color:var(--red)}
-    .sec-title{font-size:12px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.03em;margin-bottom:8px}
+    .sec-title{font-size:12px;font-weight:600;color:var(--navy);text-transform:uppercase;letter-spacing:.03em;margin-bottom:8px}
     .chip{display:inline-block;background:var(--surface);color:var(--charcoal);border-radius:8px;padding:4px 10px;font-size:13px;margin:0 6px 6px 0}
     .perm{font-size:13px;margin:6px 0}.perm b{color:var(--navy)}
     .warn{background:#FFFBEB;border:1px solid #FDE68A;color:#92400E;border-radius:10px;padding:10px;font-size:13px;margin-bottom:14px}
-    .btn{width:100%;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:600;cursor:pointer;color:#fff;background:var(--teal);margin-top:6px}
-    .btn.amber{background:var(--amber)}
-    .spinner{border:3px solid var(--border);border-top-color:var(--teal);border-radius:50%;width:34px;height:34px;animation:spin 1s linear infinite;margin:30px auto}
-    @keyframes spin{to{transform:rotate(360deg)}}
+    button.amber{--pico-primary-background:#D97706;--pico-primary-hover-background:#b45f05;--pico-primary:#D97706}
+    .spin{display:flex;justify-content:center;padding:36px}
     .empty{color:var(--muted);font-size:14px;text-align:center;padding:30px}
   </style>
 </head>
 <body>
   <div class="app">
-    <header><h1>My Profile</h1><p>My Factory · KYC</p></header>
-    <main id="main"><div class="spinner"></div></main>
+    <header class="bar"><h1>My Profile</h1><p>My Factory · KYC</p></header>
+    <main class="wrap" id="main"><div class="spin" aria-busy="true">กำลังโหลด…</div></main>
   </div>
 
   <script>
@@ -57,29 +64,29 @@
         if(!liff.isLoggedIn()){liff.login();return;}
         idToken=liff.getIDToken();
         return api('getProfile').then(function(res){
-          if(res&&res.error&&/expired|IdToken|verify failed/i.test(res.error)){ reauth(); return; }
+          if(res&&(res.code||res.error)&&/expired|IdToken|verify failed/i.test(res.code||res.error)){ reauth(); return; }
           sessionStorage.removeItem('reauth');
-          if(!res||!res.ok){main.innerHTML='<div class="empty">'+((res&&res.error)||'error')+'</div>';return;}
+          if(!res||!res.ok){main.innerHTML='<div class="empty">'+esc((res&&res.error)||'error')+'</div>';return;}
           P=res.data; render();
         });
-      }).catch(function(e){main.innerHTML='<div class="empty">LINE error: '+e+'</div>';});
+      }).catch(function(e){main.innerHTML='<div class="empty">LINE error: '+esc(e)+'</div>';});
     }
     function reauth(){
-      if(sessionStorage.getItem('reauth')){main.innerHTML='<div class="empty">Session expired — close and reopen.</div>';return;}
+      if(sessionStorage.getItem('reauth')){main.innerHTML='<div class="empty">เซสชันหมดอายุ — ปิดแล้วเปิดใหม่</div>';return;}
       sessionStorage.setItem('reauth','1'); try{liff.logout();}catch(e){} liff.login();
     }
 
     function badge(s){var c=s==='active'?'b-active':(s==='revoked'?'b-revoked':'b-pending');return '<span class="badge '+c+'">'+esc(s)+'</span>';}
 
     function render(){
-      if(P.state==='not_registered'){main.innerHTML='<div class="empty">You are not registered yet. Open the KYC app to register.</div>';return;}
+      if(P.state==='not_registered'){main.innerHTML='<div class="empty">ยังไม่ได้ลงทะเบียน เปิดแอป KYC เพื่อลงทะเบียน</div>';return;}
 
       var h='';
-      if(P.expired && P.kycStatus==='active') h+='<div class="warn">⏳ Your KYC has expired — please re-verify to keep access.</div>';
-      if(P.kycStatus==='pending') h+='<div class="warn">⏳ Awaiting admin approval.</div>';
-      if(P.kycStatus==='revoked') h+='<div class="warn">⛔ Your access was revoked. Contact admin.</div>';
+      if(P.expired && P.kycStatus==='active') h+='<div class="warn"><i class="ti ti-clock-exclamation" style="vertical-align:-2px"></i> KYC หมดอายุ — กรุณายืนยันใหม่เพื่อคงสิทธิ</div>';
+      if(P.kycStatus==='pending') h+='<div class="warn"><i class="ti ti-hourglass" style="vertical-align:-2px"></i> รอผู้ดูแลอนุมัติ</div>';
+      if(P.kycStatus==='revoked') h+='<div class="warn"><i class="ti ti-ban" style="vertical-align:-2px"></i> สิทธิถูกถอน ติดต่อผู้ดูแลระบบ</div>';
 
-      h+='<div class="card">'+
+      h+='<article class="card">'+
         '<div class="name">'+esc(P.empName||P.lineName)+'</div>'+
         '<div class="sub">'+esc(P.position||'')+(P.dept?(' · '+esc(P.dept)):'')+'</div>'+
         '<div style="height:10px"></div>'+
@@ -87,28 +94,25 @@
         '<div class="row"><span class="k">LINE name</span><span class="v">'+esc(P.lineName||'-')+'</span></div>'+
         '<div class="row"><span class="k">KYC status</span><span class="v">'+badge(P.kycStatus)+'</span></div>'+
         '<div class="row"><span class="k">Valid until</span><span class="v">'+esc(P.validUntil||'-')+'</span></div>'+
-        '</div>';
+        '</article>';
 
-      // roles
-      h+='<div class="card"><div class="sec-title">My roles</div>'+
-        (P.roles&&P.roles.length? P.roles.map(function(r){return '<span class="chip">'+esc(r)+'</span>';}).join('') : '<span class="sub">none</span>')+
-        '</div>';
+      h+='<article class="card"><div class="sec-title">บทบาท (Roles)</div>'+
+        (P.roles&&P.roles.length? P.roles.map(function(r){return '<span class="chip">'+esc(r)+'</span>';}).join('') : '<span class="sub">ไม่มี</span>')+
+        '</article>';
 
-      // apps + perms
-      h+='<div class="card"><div class="sec-title">My apps &amp; permissions</div>'+
-        (P.apps&&P.apps.length? P.apps.map(function(a){return '<div class="perm"><b>'+esc(a.name)+'</b><br><span class="sub">'+esc((a.perms||[]).join(', '))+'</span></div>';}).join('') : '<span class="sub">none</span>')+
-        '</div>';
+      h+='<article class="card"><div class="sec-title">แอป &amp; สิทธิ (Apps &amp; permissions)</div>'+
+        (P.apps&&P.apps.length? P.apps.map(function(a){return '<div class="perm"><b>'+esc(a.name)+'</b><br><span class="sub">'+esc((a.perms||[]).join(', '))+'</span></div>';}).join('') : '<span class="sub">ไม่มี</span>')+
+        '</article>';
 
-      // re-verify
-      h+='<button class="btn amber" onclick="reverify()">Re-verify identity (KYC)</button>';
+      h+='<button class="amber" onclick="reverify()"><i class="ti ti-refresh" style="vertical-align:-2px"></i> ยืนยันตัวตนใหม่ (KYC)</button>';
       main.innerHTML=h;
     }
 
     function reverify(){
-      if(!confirm('Re-verify will set your status to Pending until an admin approves. Continue?')) return;
+      if(!confirm('การยืนยันใหม่จะตั้งสถานะเป็น Pending จนกว่าผู้ดูแลอนุมัติ ดำเนินการต่อ?')) return;
       api('submitKyc',{empId:P.empId}).then(function(r){
-        if(r.ok && r.data && r.data.ok){ alert('Submitted — awaiting approval.'); boot(); }
-        else alert('Error: '+((r.data&&r.data.reason)||r.error||'failed'));
+        if(r.ok && r.data && r.data.ok){ alert('ส่งแล้ว — รออนุมัติ'); boot(); }
+        else alert('ผิดพลาด: '+((r.data&&r.data.reason)||r.error||'failed'));
       });
     }
 
