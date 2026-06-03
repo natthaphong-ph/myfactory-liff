@@ -40,7 +40,10 @@
     .s-Open{background:#FEF2F2;color:var(--red)} .s-InProgress{background:#FFFBEB;color:var(--amber)}
     .s-Done{background:#EFF6FF;color:#2563EB} .s-Closed{background:#ECFDF5;color:var(--green)}
     label{display:block;font-size:13px;color:var(--muted);margin:12px 0 5px}
-    input,select,textarea{width:100%;padding:11px;font-size:15px;border:1px solid var(--border);border-radius:9px;outline:none;background:#fff}
+    input,select,textarea{width:100%;padding:11px;font-size:15px;border:1px solid var(--border);border-radius:9px;outline:none;background:#fff;
+      color:var(--charcoal)!important;--pico-form-element-color:var(--charcoal);font-weight:500}
+    select,option{color:var(--charcoal)!important}
+    input::placeholder,textarea::placeholder{color:#94A3B8!important;font-weight:400}
     textarea{min-height:74px;resize:vertical}
     .btn{width:100%;margin-top:16px;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:600;cursor:pointer;color:#fff;background:var(--teal)}
     .btn:disabled{opacity:.5}
