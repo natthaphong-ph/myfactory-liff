@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
   <title>Genba & 5S Walk</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <!-- Self-hosted image compressor (vendored in repo; no CDN dependency). Global: imageCompression -->
+  <script src="browser-image-compression.js"></script>
   <style>
     :root{--navy:#0F172A;--teal:#0D9488;--amber:#D97706;--snow:#FAFAFA;--charcoal:#1E293B;
       --surface:#F1F5F9;--border:#E5E7EB;--red:#EF4444;--green:#10B981;--muted:#64748B;}
@@ -89,8 +91,13 @@
     }
     function busyOff(){ BUSY=false; var o=document.getElementById('busy'); if(o)o.style.display='none'; }
 
-    /* image resize -> base64 (no prefix) */
-    function resize(file){return new Promise(function(res,rej){
+    /* file -> base64 (strip "data:...;base64," prefix) */
+    function fileToB64(file){return new Promise(function(res,rej){
+      var rd=new FileReader();rd.onloadend=function(){res(String(rd.result).split(',')[1]);};
+      rd.onerror=rej;rd.readAsDataURL(file);});}
+
+    /* Canvas fallback (zero-dependency) — used if the compressor lib didn't load */
+    function resizeCanvas(file){return new Promise(function(res,rej){
       var rd=new FileReader();rd.onload=function(e){var img=new Image();
         img.onload=function(){var w=img.width,h=img.height,m=1280;
           if(w>h&&w>m){h=Math.round(h*m/w);w=m;}else if(h>m){w=Math.round(w*m/h);h=m;}
@@ -99,6 +106,18 @@
           res(c.toDataURL('image/jpeg',0.7).split(',')[1]);};
         img.onerror=rej;img.src=e.target.result;};
       rd.onerror=rej;rd.readAsDataURL(file);});}
+
+    /* image resize -> base64 (no prefix)
+       Primary: browser-image-compression (Web Worker, <=200KB cap, fixes EXIF rotation).
+       Fallback: canvas, if the vendored lib failed to load (offline / blocked). */
+    function resize(file){
+      if(typeof imageCompression==='function'){
+        return imageCompression(file,{maxSizeMB:0.2,maxWidthOrHeight:1280,useWebWorker:true})
+          .then(fileToB64)
+          .catch(function(){return resizeCanvas(file);});   // any lib error -> canvas
+      }
+      return resizeCanvas(file);
+    }
 
     /* ---------- boot ---------- */
     function perfBadge(a,b){
