@@ -1,53 +1,66 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="th" data-theme="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
   <title>My Factory</title>
   <!-- LINE LIFF SDK -->
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <!-- Pico CSS (classless base) + IBM Plex Sans Thai -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
   <style>
+    /* ---- Brand theming: map Pico's variables to My Factory palette ---- */
     :root{
-      --navy:#0F172A; --teal:#0D9488; --amber:#D97706; --snow:#FAFAFA;
-      --charcoal:#1E293B; --surface:#F1F5F9; --border:#E5E7EB;
-      --red:#EF4444; --green:#10B981; --muted:#64748B;
+      --pico-font-family:"IBM Plex Sans Thai",system-ui,-apple-system,sans-serif;
+      --pico-primary:#0D9488;            /* teal */
+      --pico-primary-background:#0D9488;
+      --pico-primary-hover-background:#0b7a70;
+      --pico-primary-focus:rgba(13,148,136,.25);
+      --pico-border-radius:12px;
+      --pico-spacing:1rem;
+      --navy:#0F172A; --teal:#0D9488; --muted:#64748B; --border:#E5E7EB;
+      --snow:#FAFAFA; --red:#EF4444;
     }
-    *{box-sizing:border-box}
-    body{margin:0;font-family:"IBM Plex Sans Thai",sans-serif;background:var(--snow);color:var(--charcoal)}
+    body{background:var(--snow)}
     .app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
-    header{background:var(--navy);color:#fff;padding:16px;text-align:center}
-    header h1{font-size:17px;margin:0;font-weight:600}
-    header p{margin:4px 0 0;font-size:12px;color:#cbd5e1}
-    main{flex:1;padding:18px}
-    .card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:14px}
-    .state{text-align:center;padding:24px 10px}
-    .state .ic{font-size:40px}
-    .state h2{font-size:17px;margin:10px 0 6px;color:var(--navy)}
+    /* navy header band */
+    header.bar{background:var(--navy);color:#fff;padding:18px 16px;text-align:center}
+    header.bar h1{font-size:18px;margin:0;font-weight:600;color:#fff}
+    header.bar p{margin:4px 0 0;font-size:12px;color:#cbd5e1}
+    main.wrap{flex:1;padding:18px}
+    /* cards = Pico <article>, tighten margins */
+    article{margin:0 0 14px;padding:18px}
+    .state{text-align:center;padding:20px 8px}
+    .state .ic{font-size:42px;line-height:1}
+    .state h2{font-size:18px;margin:12px 0 6px;color:var(--navy)}
     .state p{font-size:14px;color:var(--muted);margin:0}
-    label{display:block;font-size:13px;color:var(--muted);margin:0 0 6px}
-    input{width:100%;padding:12px;font-size:16px;border:1px solid var(--border);border-radius:10px;outline:none}
-    input:focus{border-color:var(--teal)}
-    button.primary{width:100%;margin-top:14px;background:var(--teal);color:#fff;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:600;cursor:pointer}
-    button.primary:disabled{opacity:.5}
-    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    .tile{background:#fff;border:1px solid var(--border);border-radius:14px;padding:18px 12px;text-align:center;text-decoration:none;color:var(--charcoal)}
-    .tile .ic{font-size:26px;color:var(--teal)}
-    .tile .nm{font-size:13px;margin-top:8px;font-weight:600}
-    .hello{font-size:14px;margin-bottom:12px}
+    .hello{font-size:14px;margin:2px 0 14px}
     .hello b{color:var(--navy)}
+    /* app tiles */
+    .tiles{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .tile{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+      background:#fff;border:1px solid var(--border);border-radius:14px;padding:22px 12px;
+      text-decoration:none;color:var(--navy);font-weight:600;font-size:13px;
+      transition:transform .08s ease,box-shadow .12s ease}
+    .tile:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(15,23,42,.08)}
+    .tile .ic{font-size:28px;color:var(--teal)}
     .err{color:var(--red);font-size:13px;margin-top:8px;text-align:center}
-    .spinner{border:3px solid var(--border);border-top-color:var(--teal);border-radius:50%;width:34px;height:34px;animation:spin 1s linear infinite;margin:0 auto}
-    @keyframes spin{to{transform:rotate(360deg)}}
+    .spin{display:flex;justify-content:center;padding:28px}
+    /* shrink Pico's default input/button footprint a touch for mobile */
+    input{margin-bottom:0}
+    label{font-size:13px;color:var(--muted);margin-bottom:6px}
   </style>
 </head>
 <body>
   <div class="app">
-    <header>
+    <header class="bar">
       <h1>My Factory</h1>
       <p>Production Super App</p>
     </header>
-    <main id="main">
-      <div class="state"><div class="spinner"></div><p style="margin-top:14px">Connecting to LINE…</p></div>
+    <main class="wrap" id="main">
+      <div class="spin" aria-busy="true">Connecting to LINE…</div>
     </main>
   </div>
 
@@ -59,7 +72,6 @@
 
     var idToken = null;
     var main = document.getElementById('main');
-
     function show(html){ main.innerHTML = html; }
 
     /** POST to GAS as text/plain to avoid a CORS preflight (GAS has no OPTIONS). */
@@ -78,13 +90,13 @@
         idToken = liff.getIDToken();
         return api('checkAccess').then(handleAccess);
       }).catch(function(e){
-        show('<div class="state"><div class="ic">⚠️</div><h2>LINE error</h2><p>'+e+'</p></div>');
+        show('<article class="state"><div class="ic">⚠️</div><h2>LINE error</h2><p>'+esc(e)+'</p></article>');
       });
     }
 
     function reauth(){
       if(sessionStorage.getItem('reauth')){
-        show('<div class="state"><div class="ic">⚠️</div><h2>Session expired</h2><p>Please close and reopen this page.</p></div>');
+        show('<article class="state"><div class="ic">⚠️</div><h2>เซสชันหมดอายุ</h2><p>กรุณาปิดแล้วเปิดหน้านี้ใหม่</p></article>');
         return;
       }
       sessionStorage.setItem('reauth','1');
@@ -92,9 +104,9 @@
       liff.login();
     }
     function handleAccess(res){
-      if(res && res.error && /expired|IdToken|verify failed/i.test(res.error)){ reauth(); return; }
+      if(res && (res.code||res.error) && /expired|IdToken|verify failed/i.test(res.code||res.error)){ reauth(); return; }
       if(!res || !res.ok){
-        show('<div class="state"><div class="ic">⚠️</div><h2>Error</h2><p>'+((res&&res.error)||'unknown')+'</p></div>');
+        show('<article class="state"><div class="ic">⚠️</div><h2>เกิดข้อผิดพลาด</h2><p>'+esc((res&&res.error)||'unknown')+'</p></article>');
         return;
       }
       sessionStorage.removeItem('reauth');
@@ -104,33 +116,33 @@
         case 'not_registered':    renderRegister(d, false); break;
         case 'reverify_required': renderRegister(d, true); break;
         case 'pending':           renderPending(); break;
-        case 'revoked':           renderBlocked('Your access was revoked.','Contact the system admin.'); break;
-        case 'denied_inactive':   renderBlocked('Account inactive','Your employee record is inactive. Contact HR/Admin.'); break;
-        default:                  renderBlocked('Access denied', d.state);
+        case 'revoked':           renderBlocked('สิทธิถูกถอน','ติดต่อผู้ดูแลระบบ'); break;
+        case 'denied_inactive':   renderBlocked('บัญชีถูกปิด','ข้อมูลพนักงานถูกปิดการใช้งาน ติดต่อ HR/Admin'); break;
+        default:                  renderBlocked('ปฏิเสธการเข้าถึง', d.state);
       }
     }
 
     function renderRegister(d, reverify){
       show(
-        '<div class="card">'+
-          '<div class="state" style="padding:10px 0 18px"><div class="ic">🪪</div>'+
-          '<h2>'+(reverify?'Re-verify your identity':'Register (KYC)')+'</h2>'+
-          '<p>Hi '+esc(d.displayName)+', enter your Employee ID to '+(reverify?'re-confirm':'request')+' access.</p></div>'+
-          '<label>Employee ID</label>'+
-          '<input id="emp" placeholder="e.g. E0001" autocapitalize="characters">'+
-          '<button class="primary" id="go">Submit for approval</button>'+
+        '<article>'+
+          '<div class="state" style="padding:6px 0 16px"><div class="ic">🪪</div>'+
+          '<h2>'+(reverify?'ยืนยันตัวตนอีกครั้ง':'ลงทะเบียน (KYC)')+'</h2>'+
+          '<p>สวัสดี '+esc(d.displayName)+' กรอกรหัสพนักงานเพื่อ'+(reverify?'ยืนยันใหม่':'ขอสิทธิ')+'</p></div>'+
+          '<label for="emp">รหัสพนักงาน (Employee ID)</label>'+
+          '<input id="emp" placeholder="เช่น E0001" autocapitalize="characters">'+
+          '<button id="go" style="margin-top:14px">ส่งเพื่อขออนุมัติ</button>'+
           '<div class="err" id="err"></div>'+
-        '</div>'
+        '</article>'
       );
       document.getElementById('go').onclick = function(){
         var emp = document.getElementById('emp').value.trim();
-        if(!emp){ document.getElementById('err').textContent='Please enter your Employee ID.'; return; }
-        this.disabled=true; this.textContent='Submitting…';
+        if(!emp){ document.getElementById('err').textContent='กรุณากรอกรหัสพนักงาน'; return; }
+        this.setAttribute('aria-busy','true'); this.textContent='กำลังส่ง…';
         var btn=this;
         api('submitKyc', { empId: emp }).then(function(r){
           if(r.ok && r.data && r.data.ok){ renderPending(); }
           else {
-            btn.disabled=false; btn.textContent='Submit for approval';
+            btn.removeAttribute('aria-busy'); btn.textContent='ส่งเพื่อขออนุมัติ';
             var reason = (r.data && r.data.reason) || r.error || 'failed';
             document.getElementById('err').textContent = reasonMsg(reason);
           }
@@ -139,29 +151,29 @@
     }
 
     function reasonMsg(r){
-      if(r==='emp_not_found') return 'Employee ID not found. Check with Admin/HR.';
-      if(r==='emp_inactive')  return 'This Employee ID is inactive.';
-      return 'Error: '+r;
+      if(r==='emp_not_found') return 'ไม่พบรหัสพนักงานนี้ ตรวจสอบกับ Admin/HR';
+      if(r==='emp_inactive')  return 'รหัสพนักงานนี้ถูกปิดการใช้งาน';
+      return 'ข้อผิดพลาด: '+r;
     }
 
     function renderPending(){
-      show('<div class="state"><div class="ic">⏳</div><h2>Awaiting approval</h2>'+
-           '<p>Your request was sent to the admin. You will get access once approved.</p></div>');
+      show('<article class="state"><div class="ic">⏳</div><h2>รออนุมัติ</h2>'+
+           '<p>ส่งคำขอให้ผู้ดูแลแล้ว คุณจะได้รับสิทธิเมื่อได้รับการอนุมัติ</p></article>');
     }
 
     function renderBlocked(title, sub){
-      show('<div class="state"><div class="ic">⛔</div><h2>'+esc(title)+'</h2><p>'+esc(sub)+'</p></div>');
+      show('<article class="state"><div class="ic">⛔</div><h2>'+esc(title)+'</h2><p>'+esc(sub)+'</p></article>');
     }
 
     function renderHome(d){
       var apps = d.apps || [];
       var tiles = apps.length ? apps.map(function(a){
         var href = (a.url && a.url.indexOf('http')===0) ? a.url : '#';
-        return '<a class="tile" href="'+href+'"><div class="ic">▣</div><div class="nm">'+esc(a.appName)+'</div></a>';
-      }).join('') : '<p style="color:var(--muted);font-size:13px">No apps assigned yet.</p>';
+        return '<a class="tile" href="'+href+'"><span class="ic">▣</span><span>'+esc(a.appName)+'</span></a>';
+      }).join('') : '<p style="color:var(--muted);font-size:13px">ยังไม่ได้รับสิทธิแอปใด</p>';
       show(
-        '<div class="hello">Welcome, <b>'+esc(d.empName||d.displayName)+'</b>'+(d.dept?(' · '+esc(d.dept)):'')+'</div>'+
-        '<div class="grid">'+tiles+'</div>'
+        '<div class="hello">ยินดีต้อนรับ <b>'+esc(d.empName||d.displayName)+'</b>'+(d.dept?(' · '+esc(d.dept)):'')+'</div>'+
+        '<div class="tiles">'+tiles+'</div>'
       );
     }
 

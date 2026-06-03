@@ -29,6 +29,7 @@
     input,select{padding:8px;border:1px solid var(--border);border-radius:7px;font-size:13px;width:100%}
     .btn{border:none;border-radius:7px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;color:#fff;background:var(--teal)}
     .btn.sm{padding:5px 10px;font-size:12px}.btn.green{background:var(--green)}.btn.red{background:var(--red)}.btn.gray{background:var(--muted)}
+    .btn.rv{background:#fff;color:var(--red);border:1px solid var(--red)}.btn.rv:hover{background:#FEF2F2}
     .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600}
     .b-active{background:#ECFDF5;color:var(--green)}.b-pending{background:#FFFBEB;color:var(--amber)}.b-revoked{background:#FEF2F2;color:var(--red)}
     .addrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-top:10px;align-items:end}
@@ -189,7 +190,7 @@
     function renderConfig(secKey){
       var s=sec_(secKey); if(!s)return;
       var rows=M[s.data]||[];
-      var head='<tr>'+s.cols.map(function(c){return '<th>'+c.f+'</th>';}).join('')+(s.addonly?'':'<th></th>')+'</tr>';
+      var head='<tr>'+s.cols.map(function(c){return '<th>'+c.f+'</th>';}).join('')+'<th></th></tr>';
       var body=rows.map(function(r){
         var idv=s.idField?r[s.idField]:'';
         var cells=s.cols.map(function(c){
@@ -197,7 +198,15 @@
           if(s.addonly) return '<td>'+esc(resolveCell(s.key,c.f,r[c.f]))+'</td>';
           return '<td>'+fieldHtml('e_'+secKey+'_'+esc(idv)+'_'+c.f,c,r[c.f],false)+'</td>';
         }).join('');
-        return '<tr>'+cells+(s.addonly?'':'<td><button class="btn sm" onclick="saveRow(\''+secKey+'\',\''+esc(idv)+'\')">Save</button></td>')+'</tr>';
+        var tail;
+        if(s.addonly){
+          var match={}; s.cols.forEach(function(c){match[c.f]=r[c.f];});
+          var enc=encodeURIComponent(JSON.stringify(match));
+          tail='<td><button class="btn sm rv" onclick="revokeRow(\''+secKey+'\',\''+enc+'\')">Revoke</button></td>';
+        } else {
+          tail='<td><button class="btn sm" onclick="saveRow(\''+secKey+'\',\''+esc(idv)+'\')">Save</button></td>';
+        }
+        return '<tr>'+cells+tail+'</tr>';
       }).join('');
       var inputs=s.cols.map(function(c){return fieldHtml('add_'+secKey+'_'+c.f,c,'',true);}).join('');
       var addrow=s.noadd?'':'<div class="addrow">'+inputs+'<button class="btn" onclick="addRow(\''+secKey+'\')">+ Add</button></div>';
@@ -217,6 +226,15 @@
       if(!values[0]){alert('First field required');return;}
       busyOn('Adding…');
       api('cpAddRow',{table:secKey,values:values}).then(function(r){busyOff();if(!r.ok){alert(r.error||r.reason);return;}M=null;loadConfig(secKey);});
+    }
+    function revokeRow(secKey,enc){
+      if(BUSY)return;
+      var match=JSON.parse(decodeURIComponent(enc));
+      if(!confirm('ถอนรายการนี้? (เก็บประวัติไว้ — สามารถเพิ่มกลับได้ภายหลัง)'))return;
+      busyOn('Revoking…');
+      api('cpRevoke',{table:secKey,match:match}).then(function(r){busyOff();
+        if(!r.ok){alert(r.reason==='no_status_col'?'ยังไม่ได้เปิดใช้ revoke — รัน setupRevoke() ก่อน':(r.error||r.reason));return;}
+        M=null;loadConfig(secKey);});
     }
     boot();
   </script>
