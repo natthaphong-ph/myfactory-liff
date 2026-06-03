@@ -84,6 +84,9 @@
     function api(action,extra){return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
       body:JSON.stringify(Object.assign({action:action,idToken:idToken},extra||{}))}).then(function(r){return r.json();});}
     function thumb(u,w){return u?u.replace('/uc?id=','/thumbnail?id=')+'&sz=w'+(w||300):'';}
+    function ssGet(key,ttlSec){try{var o=JSON.parse(sessionStorage.getItem(key)||'null');if(o&&(Date.now()-o.t)<ttlSec*1000)return o.d;}catch(e){}return null;}
+    function ssPut(key,data){try{sessionStorage.setItem(key,JSON.stringify({t:Date.now(),d:data}));}catch(e){}}
+    function clearDashCache(){try{Object.keys(sessionStorage).forEach(function(k){if(k.indexOf('dash_')===0)sessionStorage.removeItem(k);});}catch(e){}}
 
     function boot(){
       liff.init({liffId:LIFF_ID}).then(function(){
@@ -97,13 +100,17 @@
       sessionStorage.setItem('reauth','1'); try{liff.logout();}catch(e){} liff.login();
     }
     function reload(){
-      busyOn('Loading…');
       var filter={dept:$('fdept')?$('fdept').value:'',area:$('farea')?$('farea').value:'',assigned:$('fasg')?$('fasg').value:''};
+      var key='dash_'+JSON.stringify(filter);
+      var cached=ssGet(key,60);
+      if(cached){ DATA=cached; $('who').textContent=cached.boot.empName+' · '+(cached.boot.perms||[]).length+' perms'; buildFilters(); render(); }   // instant from cache
+      else busyOn('Loading…');
       return api('genbaDashboard',{filter:filter}).then(function(r){
         busyOff();
-        if(r&&r.error&&/expired|IdToken|verify failed/i.test(r.error)){ reauth(); return; }
+        if(r&&(r.code||r.error)&&/expired|IdToken|verify failed/i.test(r.code||r.error)){ reauth(); return; }
         sessionStorage.removeItem('reauth');
-        if(!r||!r.ok){$('main').innerHTML='<div class="empty">'+((r&&r.error)||'No dashboard access (need P_DASHBOARD)')+'</div>';$('filters').style.display='none';return;}
+        if(!r||!r.ok){ if(!cached){$('main').innerHTML='<div class="empty">'+esc((r&&r.error)||'No dashboard access (need P_DASHBOARD)')+'</div>';$('filters').style.display='none';} return; }
+        ssPut(key,r);
         DATA=r; $('who').textContent=r.boot.empName+' · '+(r.boot.perms||[]).length+' perms';
         buildFilters(); render();
       });
@@ -176,7 +183,7 @@
         var sel=function(id,arr,val){return '<select id="'+id+'">'+arr.map(function(x){return '<option'+(x===val?' selected':'')+'>'+esc(x)+'</option>';}).join('')+'</select>';};
         var selObj=function(id,arr,valId){return '<select id="'+id+'">'+arr.map(function(x){return '<option value="'+esc(x.id)+'"'+(x.id===valId?' selected':'')+'>'+esc(x.name)+'</option>';}).join('')+'</select>';};
         var asg='<select id="eowner">'+DATA.boot.assignees.map(function(a){return '<option value="'+esc(a.id)+'"'+(a.id===f.ownerEmpId?' selected':'')+'>'+esc(a.name)+'</option>';}).join('')+'</select>';
-        var gal=function(arr){return arr.length?'<div class="gallery">'+arr.map(function(p){return '<img src="'+esc(thumb(p.url,300))+'" referrerpolicy="no-referrer">';}).join('')+'</div>':'<div class="empty" style="padding:6px">none</div>';};
+        var gal=function(arr){return arr.length?'<div class="gallery">'+arr.map(function(p){return '<img src="'+esc(thumb(p.url,300))+'" referrerpolicy="no-referrer" loading="lazy">';}).join('')+'</div>':'<div class="empty" style="padding:6px">none</div>';};
         var before=photos.filter(function(p){return p.phase==='before';}), after=photos.filter(function(p){return p.phase==='after';});
         $('modal').innerHTML='<h2>Edit finding · '+esc(f.findingId)+'</h2>'+
           '<label>Area</label>'+selObj('earea',DATA.boot.areas,f.area)+
@@ -203,7 +210,7 @@
       if(BUSY)return;busyOn('Saving…');
       var patch={Area:$('earea').value,Category:$('ecat').value,Severity:$('esev').value,Description:$('edesc').value,
         Remark:$('eremark').value,OwnerEmpID:$('eowner').value,Status:$('estatus').value,DueDate:$('edue').value};
-      api('genbaEdit',{findingId:fid,patch:patch}).then(function(r){busyOff();if(!r.ok){alert(r.error||r.reason);return;}closeModal();reload();});
+      api('genbaEdit',{findingId:fid,patch:patch}).then(function(r){busyOff();if(!r.ok){alert(r.error||r.reason);return;}clearDashCache();closeModal();reload();});
     }
     function pickAfter(fid){
       var inp=document.createElement('input');inp.type='file';inp.accept='image/*';
@@ -217,7 +224,7 @@
       api('genbaStatus',{findingId:fid,status:'Closed',note:''}).then(function(r){
         busyOff();
         if(!r.ok){alert(r.reason==='need_after_photo'?'ต้องมีรูป After อย่างน้อย 1 รูปก่อนปิด':(r.error||r.reason));return;}
-        closeModal();reload();
+        clearDashCache();closeModal();reload();
       });
     }
     function resize(file){return new Promise(function(res,rej){var rd=new FileReader();rd.onload=function(e){var img=new Image();

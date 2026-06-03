@@ -160,14 +160,16 @@
       busyOn('Loading…');
       function fail(e){busyOff();$('main').innerHTML='<div class="empty">'+esc(e||'error')+'</div>';}
       function done(){busyOff();renderConfig(secKey);}
-      if(BOOT.canConfig){
-        api('cpMasters').then(function(r){
-          if(!r.ok){fail(r.error);return;} M=r;
-          if(BOOT.canGrant){api('cpAccess').then(function(a){mergeAccess(a);done();});} else done();
-        });
-      } else if(BOOT.canGrant){
-        api('cpAccess').then(function(a){if(!a.ok){fail(a.error);return;}M={};mergeAccess(a);done();});
-      } else fail('No config access');
+      if(!BOOT.canConfig && !BOOT.canGrant){fail('No config access');return;}
+      // fire both in parallel (was sequential) — cuts one round-trip
+      var pM=BOOT.canConfig?api('cpMasters'):Promise.resolve(null);
+      var pA=BOOT.canGrant?api('cpAccess'):Promise.resolve(null);
+      Promise.all([pM,pA]).then(function(res){
+        var m=res[0], a=res[1];
+        if(BOOT.canConfig){ if(!m||!m.ok){fail(m&&m.error);return;} M=m; } else { M={}; }
+        if(BOOT.canGrant){ if(!a||!a.ok){fail(a&&a.error);return;} mergeAccess(a); }
+        done();
+      });
     }
     function dmap(arr,k,v){var o={};(arr||[]).forEach(function(x){o[x[k]]=x[v];});return o;}
     function resolveCell(secKey,col,val){

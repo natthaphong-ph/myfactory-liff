@@ -80,11 +80,17 @@
     /* ======================================================== */
 
     var idToken=null, BOOT=null, scope='all', beforeFiles=[], main=document.getElementById('main');
+    /* list pagination state */
+    var LISTALL=[], SHOWN=0, PAGE=30, FILTERED=false, CURFILTER=null;
 
     function api(action, extra){
       return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
         body:JSON.stringify(Object.assign({action:action,idToken:idToken},extra||{}))}).then(function(r){return r.json();});
     }
+    /* sessionStorage cache (stale-while-revalidate) — instant re-open within TTL */
+    function ssGet(key,ttlSec){try{var o=JSON.parse(sessionStorage.getItem(key)||'null');
+      if(o&&(Date.now()-o.t)<ttlSec*1000)return o.d;}catch(e){}return null;}
+    function ssPut(key,data){try{sessionStorage.setItem(key,JSON.stringify({t:Date.now(),d:data}));}catch(e){}}
     function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
     function show(h){main.innerHTML=h;}
     function setTitle(t){document.getElementById('title').textContent=t;}
@@ -144,16 +150,21 @@
         tInit=Date.now()-t0;
         if(!liff.isLoggedIn()){liff.login();return;}
         idToken=liff.getIDToken();
+        // SWR: paint instantly from cache, then revalidate in the background
+        var cached=ssGet('genbaInit',90);
+        if(cached&&cached.boot){ BOOT=cached.boot; buildAssigneeMap(); renderHome(cached.findings||[]); }
         var tf=Date.now();
         return api('genbaInit').then(function(r){   // filter options + assignees + All list
           var tFetch=Date.now()-tf;
-          if(r&&r.error&&/expired|IdToken|verify failed/i.test(r.error)){ reauth(); return; }
+          if(r&&(r.code||r.error)&&/expired|IdToken|verify failed/i.test(r.code||r.error)){ reauth(); return; }
           sessionStorage.removeItem('reauth');
-          if(!r||!r.ok){show('<div class="empty">'+((r&&r.error)||'No access to Genba')+'</div>');return;}
-          BOOT=r.boot; buildAssigneeMap(); renderHome(r.findings);
-          perfBadge(tInit,tFetch);
+          if(!r||!r.ok){ if(!cached) show('<div class="empty">'+esc((r&&r.error)||'No access to Genba')+'</div>'); return; }
+          ssPut('genbaInit',{boot:r.boot,findings:r.findings});
+          BOOT=r.boot; buildAssigneeMap();
+          if(!FILTERED) renderHome(r.findings);   // refresh list only if user hasn't filtered meanwhile
+          if(!cached) perfBadge(tInit,tFetch);
         });
-      }).catch(function(e){show('<div class="empty">LINE error: '+e+'</div>');});
+      }).catch(function(e){show('<div class="empty">LINE error: '+esc(e)+'</div>');});
     }
     function reauth(){
       if(sessionStorage.getItem('reauth')){show('<div class="empty">Session expired — close and reopen.</div>');return;}
@@ -177,25 +188,48 @@
         '<div class="frow"><select id="fasg">'+asg+'</select>'+
         '<select id="fstatus">'+stOpts+'</select></div>'+
         '<button class="btn" style="margin-top:10px" onclick="applyFilter()">Show</button>'+
-        '</div><div id="list"></div>');
-      fillList(initial);
+        '</div><div id="list"></div><div id="more"></div>');
+      // default view: client-side pagination over the full list from genbaInit (instant)
+      FILTERED=false; LISTALL=initial||[]; SHOWN=0;
+      document.getElementById('list').innerHTML='';
+      if(!LISTALL.length){document.getElementById('list').innerHTML='<div class="empty">No findings.</div>';return;}
+      renderMore();
     }
     function applyFilter(){
       if(BUSY)return; busyOn('Loading…');
-      var filter={dept:val('fdept'),area:val('farea'),assigned:val('fasg'),status:val('fstatus')};
-      api('genbaFilter',{filter:filter}).then(function(r){
+      CURFILTER={dept:val('fdept'),area:val('farea'),assigned:val('fasg'),status:val('fstatus')};
+      FILTERED=true; SHOWN=0;
+      var el=document.getElementById('list'); if(el)el.innerHTML='';
+      api('genbaFilter',{filter:Object.assign({},CURFILTER,{offset:0,limit:PAGE})}).then(function(r){
         busyOff();
-        if(!r.ok){document.getElementById('list').innerHTML='<div class="empty">'+(r.error||'error')+'</div>';return;}
-        fillList(r.findings);
+        if(!r.ok){el.innerHTML='<div class="empty">'+esc(r.error||'error')+'</div>';return;}
+        if(!r.findings.length){el.innerHTML='<div class="empty">No findings.</div>';document.getElementById('more').innerHTML='';return;}
+        el.insertAdjacentHTML('beforeend',r.findings.map(card).join(''));
+        SHOWN=r.findings.length; setMore(r.hasMore);
       });
     }
-    function renderList(){ renderHome([]); applyFilter(); }   // refresh after actions
-    function fillList(findings){
-      var el=document.getElementById('list');
-      if(!el) return;
-      if(!findings||!findings.length){el.innerHTML='<div class="empty">No findings.</div>';return;}
-      el.innerHTML=findings.map(card).join('');
+    function renderMore(){
+      // client-side slice of LISTALL (default unfiltered view)
+      var el=document.getElementById('list'); if(!el)return;
+      var next=LISTALL.slice(SHOWN,SHOWN+PAGE);
+      el.insertAdjacentHTML('beforeend',next.map(card).join(''));
+      SHOWN+=next.length; setMore(SHOWN<LISTALL.length);
     }
+    function loadMore(){
+      if(BUSY)return;
+      if(!FILTERED){ renderMore(); return; }
+      busyOn('Loading…');
+      api('genbaFilter',{filter:Object.assign({},CURFILTER,{offset:SHOWN,limit:PAGE})}).then(function(r){
+        busyOff(); if(!r.ok)return;
+        document.getElementById('list').insertAdjacentHTML('beforeend',r.findings.map(card).join(''));
+        SHOWN+=r.findings.length; setMore(r.hasMore);
+      });
+    }
+    function setMore(has){
+      var m=document.getElementById('more'); if(!m)return;
+      m.innerHTML=has?'<button class="btn sec" style="margin-top:4px" onclick="loadMore()">Load more</button>':'';
+    }
+    function renderList(){ sessionStorage.removeItem('genbaInit'); renderHome([]); applyFilter(); }   // refresh after actions
     function thumb(url,w){ return url ? url.replace('/uc?id=','/thumbnail?id=')+'&sz=w'+(w||200) : ''; }
     function card(f){
       var img=f.cover?'<img src="'+esc(thumb(f.cover,200))+'" referrerpolicy="no-referrer" loading="lazy">':'<div class="ph">no photo</div>';
@@ -328,16 +362,26 @@
     }
     function rmAfter(i){window._afterFiles.splice(i,1);renderAfterThumbs();}
 
+    /* Optimistic: reflect the change instantly (no spinner), sync in background, revert on error. */
     function setStatus(fid,status){
-      if(BUSY)return; busyOn('Updating…');
+      if(BUSY)return; BUSY=true;
+      var b=document.querySelector('.badge'); var pT=b?b.textContent:'', pC=b?b.className:'';
+      if(b){b.textContent=status;b.className='badge s-'+status.replace(/\s/g,'');}
+      sessionStorage.removeItem('genbaInit');                 // list now stale
       api('genbaStatus',{findingId:fid,status:status}).then(function(r){
-        busyOff(); if(!r.ok){alert(r.error||r.reason||'error');return;} openFinding(fid);
+        BUSY=false;
+        if(!r.ok){ if(b){b.textContent=pT;b.className=pC;} alert(r.error||r.reason||'error'); return; }
+        openFinding(fid);                                     // authoritative re-render
       });
     }
     function saveRemark(fid){
-      if(BUSY)return; var v=document.getElementById('remarkEdit').value; busyOn('Saving remark…');
+      if(BUSY)return; BUSY=true;
+      var v=document.getElementById('remarkEdit').value;
+      var btn=(window.event&&window.event.target)||null; if(btn){btn.textContent='Saved ✓';}
+      sessionStorage.removeItem('genbaInit');
       api('genbaRemark',{findingId:fid,remark:v}).then(function(r){
-        busyOff(); if(!r.ok){alert(r.error||r.reason||'error');return;} openFinding(fid);
+        BUSY=false;
+        if(!r.ok){ if(btn)btn.textContent='Save remark'; alert(r.error||r.reason||'error'); }
       });
     }
     function closeFinding(fid){
