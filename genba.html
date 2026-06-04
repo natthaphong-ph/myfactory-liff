@@ -128,14 +128,25 @@
         img.onerror=rej;img.src=e.target.result;};
       rd.onerror=rej;rd.readAsDataURL(file);});}
 
+    /* iOS (iPhone/iPad incl. iPadOS that reports as Mac) — Web Worker compression
+       hangs inside the LINE/Safari webview, so run on the main thread there. */
+    function isIOS(){
+      return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+             (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+    }
+    /* Guard against silent hangs: if a promise doesn't settle in ms, reject. */
+    function withTimeout(p,ms){
+      return Promise.race([p,new Promise(function(_,rej){setTimeout(function(){rej(new Error('compress timeout'));},ms);})]);
+    }
     /* image resize -> base64 (no prefix)
-       Primary: browser-image-compression (Web Worker, <=200KB cap, fixes EXIF rotation).
-       Fallback: canvas, if the vendored lib failed to load (offline / blocked). */
+       Primary: browser-image-compression (<=200KB cap, fixes EXIF rotation);
+       Web Worker only on non-iOS. Any error OR 20s hang -> canvas fallback. */
     function resize(file){
       if(typeof imageCompression==='function'){
-        return imageCompression(file,{maxSizeMB:0.2,maxWidthOrHeight:1280,useWebWorker:true})
+        return withTimeout(
+            imageCompression(file,{maxSizeMB:0.2,maxWidthOrHeight:1280,useWebWorker:!isIOS()}),20000)
           .then(fileToB64)
-          .catch(function(){return resizeCanvas(file);});   // any lib error -> canvas
+          .catch(function(){return resizeCanvas(file);});   // lib error / timeout -> canvas
       }
       return resizeCanvas(file);
     }
@@ -186,7 +197,7 @@
       setTitle('Genba & 5S Walk'); document.getElementById('back').style.visibility='hidden';
       document.getElementById('fab').classList.remove('hidden');
       var asg='<option value="">— All —</option>'+(BOOT.assignees||[]).map(function(a){return '<option value="'+esc(a.id)+'">'+(a.type==='group'?'👥 ':'👤 ')+esc(a.name)+'</option>';}).join('');
-      var stOpts=(BOOT.statuses||['All']).map(function(s){return '<option value="'+esc(s)+'"'+(s==='All'?' selected':'')+'>'+esc(s)+'</option>';}).join('');
+      var stOpts=(BOOT.statuses||['All']).map(function(s){return '<option value="'+esc(s)+'"'+(s==='Outstanding'?' selected':'')+'>'+esc(s)+'</option>';}).join('');
       show('<div class="card" style="display:block;padding:12px">'+
         '<div class="frow"><select id="fdept">'+opts(BOOT.departments||[])+'</select>'+
         '<select id="farea">'+opts(BOOT.areas||[])+'</select></div>'+
@@ -194,8 +205,9 @@
         '<select id="fstatus">'+stOpts+'</select></div>'+
         '<button class="btn" style="margin-top:10px" onclick="applyFilter()">Show</button>'+
         '</div><div id="list"></div><div id="more"></div>');
-      // default view: client-side pagination over the full list from genbaInit (instant)
-      FILTERED=false; LISTALL=initial||[]; SHOWN=0;
+      // default view: NOT-Closed only (pick "Closed"/"All" in the dropdown to see closed ones)
+      FILTERED=false; SHOWN=0;
+      LISTALL=(initial||[]).filter(function(f){return f.status!=='Closed';});
       document.getElementById('list').innerHTML='';
       if(!LISTALL.length){document.getElementById('list').innerHTML='<div class="empty">No findings.</div>';return;}
       renderMore();
@@ -369,10 +381,10 @@
       if(f.status!=='Closed' && (canAct || BOOT.canClose)){
         h+='<div class="card" style="display:block"><div class="sec-title">Update</div>';
         if(canAct){
-          h+='<button class="btn sec" onclick="setStatus(\''+f.findingId+'\',\'In Progress\')">Mark In Progress</button>';
-          h+='<button class="btn sec" style="margin-top:8px" onclick="setStatus(\''+f.findingId+'\',\'Done\')">Mark Done</button>';
-          h+='<label>Remark (repair / WO no.)</label><input id="remarkEdit" value="'+esc(f.remark||'')+'">';
+          h+='<label style="margin-top:2px">Remark (repair / WO no.)</label><input id="remarkEdit" value="'+esc(f.remark||'')+'">';
           h+='<button class="btn sec" style="margin-top:8px" onclick="saveRemark(\''+f.findingId+'\')">Save remark</button>';
+          h+='<button class="btn sec" style="margin-top:14px" onclick="setStatus(\''+f.findingId+'\',\'In Progress\')">Mark In Progress</button>';
+          h+='<button class="btn sec" style="margin-top:8px" onclick="setStatus(\''+f.findingId+'\',\'Done\')">Mark Done</button>';
         } else {
           h+='<div class="sub" style="margin-bottom:6px">You are not the assignee — view only. Leader/Manager can still close.</div>';
         }
