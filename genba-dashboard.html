@@ -201,7 +201,7 @@
           '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">'+
             '<button class="btn" onclick="saveEdit(\''+f.findingId+'\')">Save</button>'+
             '<button class="btn sec" onclick="pickAfter(\''+f.findingId+'\')">+ After photo</button>'+
-            (f.status!=='Closed'&&DATA.boot.canClose?'<button class="btn green" onclick="closeFind(\''+f.findingId+'\')">Verify & Close</button>':'')+
+            (f.status==='Done'&&DATA.boot.canClose?'<button class="btn green" onclick="closeFind(\''+f.findingId+'\')">Verify & Close</button>':'')+
             '<button class="btn sec" onclick="closeModal()" style="margin-left:auto">Cancel</button>'+
           '</div>';
         $('overlay').style.display='flex';
