@@ -5,9 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>My Factory — Control Panel</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3/dist/tabler-icons.min.css">
+  <link rel="stylesheet" href="fonts/plex-thai.css">
   <style>
     :root{--navy:#0F172A;--teal:#0D9488;--amber:#D97706;--snow:#FAFAFA;--charcoal:#1E293B;
       --surface:#F1F5F9;--border:#E5E7EB;--red:#EF4444;--green:#10B981;--muted:#64748B;--info:#185FA5;--infobg:#E6F1FB;}
@@ -199,7 +197,7 @@
       var body=rows.map(function(r){
         var idv=s.idField?r[s.idField]:'';
         var cells=s.cols.map(function(c){
-          if(c.id) return '<td><span style="color:var(--muted)"><i class="ti ti-lock" style="font-size:13px;vertical-align:-2px"></i> '+esc(r[c.f])+'</span></td>';
+          if(c.id) return '<td><span style="color:var(--muted)">🔒 '+esc(r[c.f])+'</span></td>';
           if(s.addonly) return '<td>'+esc(resolveCell(s.key,c.f,r[c.f]))+'</td>';
           return '<td>'+fieldHtml('e_'+secKey+'_'+esc(idv)+'_'+c.f,c,r[c.f],false)+'</td>';
         }).join('');

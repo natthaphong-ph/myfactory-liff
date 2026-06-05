@@ -7,11 +7,10 @@
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <!-- Self-hosted image compressor (vendored in repo; no CDN dependency). Global: imageCompression -->
   <script src="browser-image-compression.js"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://cdn.jsdelivr.net">
-  <!-- LINE webview has no persistent cache: keep assets minimal (2 font weights, no icon font) -->
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;600&display=swap" rel="stylesheet">
+  <!-- LINE webview has no persistent cache: keep assets minimal.
+       Font = self-hosted subset (~60KB, same origin). No icon font. -->
+  <link rel="stylesheet" href="fonts/plex-thai.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
   <style>
     :root{--navy:#0F172A;--teal:#0D9488;--amber:#D97706;--snow:#FAFAFA;--charcoal:#1E293B;

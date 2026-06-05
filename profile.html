@@ -5,10 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
   <title>My Profile</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link rel="stylesheet" href="fonts/plex-thai.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3/dist/tabler-icons.min.css">
   <style>
     :root{
       --pico-font-family:"IBM Plex Sans Thai",system-ui,-apple-system,sans-serif;
@@ -84,9 +83,9 @@
       if(P.state==='not_registered'){main.innerHTML='<div class="empty">ยังไม่ได้ลงทะเบียน เปิดแอป KYC เพื่อลงทะเบียน</div>';return;}
 
       var h='';
-      if(P.expired && P.kycStatus==='active') h+='<div class="warn"><i class="ti ti-clock-exclamation" style="vertical-align:-2px"></i> KYC หมดอายุ — กรุณายืนยันใหม่เพื่อคงสิทธิ</div>';
-      if(P.kycStatus==='pending') h+='<div class="warn"><i class="ti ti-hourglass" style="vertical-align:-2px"></i> รอผู้ดูแลอนุมัติ</div>';
-      if(P.kycStatus==='revoked') h+='<div class="warn"><i class="ti ti-ban" style="vertical-align:-2px"></i> สิทธิถูกถอน ติดต่อผู้ดูแลระบบ</div>';
+      if(P.expired && P.kycStatus==='active') h+='<div class="warn">⏰ KYC หมดอายุ — กรุณายืนยันใหม่เพื่อคงสิทธิ</div>';
+      if(P.kycStatus==='pending') h+='<div class="warn">⏳ รอผู้ดูแลอนุมัติ</div>';
+      if(P.kycStatus==='revoked') h+='<div class="warn">⛔ สิทธิถูกถอน ติดต่อผู้ดูแลระบบ</div>';
 
       h+='<article class="card">'+
         '<div class="name">'+esc(P.empName||P.lineName)+'</div>'+
@@ -106,7 +105,7 @@
         (P.apps&&P.apps.length? P.apps.map(function(a){return '<div class="perm"><b>'+esc(a.name)+'</b><br><span class="sub">'+esc((a.perms||[]).join(', '))+'</span></div>';}).join('') : '<span class="sub">ไม่มี</span>')+
         '</article>';
 
-      h+='<button class="amber" onclick="reverify()"><i class="ti ti-refresh" style="vertical-align:-2px"></i> ยืนยันตัวตนใหม่ (KYC)</button>';
+      h+='<button class="amber" onclick="reverify()">↻ ยืนยันตัวตนใหม่ (KYC)</button>';
       main.innerHTML=h;
     }
 
