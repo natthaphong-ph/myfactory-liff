@@ -75,6 +75,12 @@
     var main = document.getElementById('main');
     function show(html){ main.innerHTML = html; }
 
+    /* shared cross-page cache (localStorage, same origin) — instant paint on re-entry */
+    var LC='mfc_';
+    function lcGet(k,ttl){try{var o=JSON.parse(localStorage.getItem(LC+k)||'null');if(o&&(Date.now()-o.t)<ttl*1000)return o.d;}catch(e){}return null;}
+    function lcPut(k,d){try{localStorage.setItem(LC+k,JSON.stringify({t:Date.now(),d:d}));}catch(e){}}
+    function lcClear(){try{Object.keys(localStorage).forEach(function(k){if(k.indexOf(LC)===0)localStorage.removeItem(k);});}catch(e){}}
+
     /** POST to GAS as text/plain to avoid a CORS preflight (GAS has no OPTIONS). */
     function api(action, extra){
       var body = Object.assign({ action: action, idToken: idToken }, extra || {});
@@ -89,7 +95,12 @@
       liff.init({ liffId: LIFF_ID }).then(function(){
         if(!liff.isLoggedIn()){ liff.login(); return; }
         idToken = liff.getIDToken();
-        return api('checkAccess').then(handleAccess);
+        var cached=lcGet('access',120);          // paint Home instantly from cache
+        if(cached) handleAccess(cached,true);
+        return api('checkAccess').then(function(res){
+          if(res&&res.ok) lcPut('access',res);   // refresh cache
+          handleAccess(res);
+        });
       }).catch(function(e){
         show('<article class="state"><div class="ic">⚠️</div><h2>LINE error</h2><p>'+esc(e)+'</p></article>');
       });
@@ -101,12 +112,13 @@
         return;
       }
       sessionStorage.setItem('reauth','1');
+      lcClear();   // drop cached data so the next login never shows a previous user's data
       try{ liff.logout(); }catch(e){}
       liff.login();
     }
-    function handleAccess(res){
-      if(res && (res.code||res.error) && /expired|IdToken|verify failed/i.test(res.code||res.error)){ reauth(); return; }
-      if(!res || !res.ok){
+    function handleAccess(res, fromCache){
+      if(!fromCache && res && (res.code||res.error) && /expired|IdToken|verify failed/i.test(res.code||res.error)){ reauth(); return; }
+      if(!res || !res.ok){ if(fromCache) return;   // bad live result with no cache to fall back on
         show('<article class="state"><div class="ic">⚠️</div><h2>เกิดข้อผิดพลาด</h2><p>'+esc((res&&res.error)||'unknown')+'</p></article>');
         return;
       }

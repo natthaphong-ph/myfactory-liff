@@ -59,7 +59,7 @@
     function busyOff(){BUSY=false;$('busy').style.display='none';}
     function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
     function api(a,e){return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(Object.assign({action:a,idToken:idToken},e||{}))}).then(function(r){return r.json();});}
-    function reauth(){if(sessionStorage.getItem('reauth')){$('main').innerHTML='<div class="empty">Session expired — close and reopen.</div>';return;}sessionStorage.setItem('reauth','1');try{liff.logout();}catch(e){}liff.login();}
+    function reauth(){if(typeof lcClear==='function')lcClear();if(sessionStorage.getItem('reauth')){$('main').innerHTML='<div class="empty">เซสชันหมดอายุ — ปิดแล้วเปิดใหม่</div>';return;}sessionStorage.setItem('reauth','1');try{liff.logout();}catch(e){}liff.login();}
 
     var CONFIG_SECTIONS=[
       {key:'dept',title:'Departments',data:'depts',idField:'DeptID',cols:[
@@ -91,17 +91,27 @@
         {f:'AppID',id:true},{f:'AppName'},{f:'AppURL'},{f:'Status',opts:['on','off']}]}
     ];
 
+    /* shared cross-page cache */
+    var LC='mfc_';
+    function lcGet(k,ttl){try{var o=JSON.parse(localStorage.getItem(LC+k)||'null');if(o&&(Date.now()-o.t)<ttl*1000)return o.d;}catch(e){}return null;}
+    function lcPut(k,d){try{localStorage.setItem(LC+k,JSON.stringify({t:Date.now(),d:d}));}catch(e){}}
+    function lcClear(){try{Object.keys(localStorage).forEach(function(k){if(k.indexOf(LC)===0)localStorage.removeItem(k);});}catch(e){}}
+    function applyBoot(r){
+      BOOT=r; $('who').textContent=r.empName; buildNav();
+      if(!SEC){ SEC=r.canApprove?'kyc':(r.canDashboard?'report':(r.canConfig?'dept':(r.canGrant?'userrole':null))); }
+      if(SEC)show(SEC); else $('main').innerHTML='<div class="empty">No Control Panel access</div>';
+    }
     function boot(){
       liff.init({liffId:LIFF_ID}).then(function(){
         if(!liff.isLoggedIn()){liff.login();return;}
         idToken=liff.getIDToken();
+        var cached=lcGet('cpboot',60);   // instant nav paint from cache
+        if(cached&&cached.ok) applyBoot(cached);
         return api('cpBoot').then(function(r){
-          if(r&&r.error&&/expired|IdToken|verify failed/i.test(r.error)){reauth();return;}
+          if(r&&(r.code||r.error)&&/expired|IdToken|verify failed/i.test(r.code||r.error)){reauth();return;}
           sessionStorage.removeItem('reauth');
-          if(!r||!r.ok){$('main').innerHTML='<div class="empty">'+((r&&r.error)||'No Control Panel access')+'</div>';return;}
-          BOOT=r; $('who').textContent=r.empName; buildNav();
-          SEC=r.canApprove?'kyc':(r.canDashboard?'report':(r.canConfig?'dept':(r.canGrant?'userrole':null)));
-          if(SEC)show(SEC); else $('main').innerHTML='<div class="empty">No Control Panel access</div>';
+          if(!r||!r.ok){ if(!cached)$('main').innerHTML='<div class="empty">'+esc((r&&r.error)||'No Control Panel access')+'</div>'; return; }
+          lcPut('cpboot',r); applyBoot(r);
         });
       }).catch(function(e){$('main').innerHTML='<div class="empty">LINE error: '+e+'</div>';});
     }
@@ -140,7 +150,7 @@
           (r.KycStatus!=='revoked'?'<button class="btn red sm" onclick="kyc(\'revoke\',\''+esc(r.KycID)+'\')">Revoke</button>':'')+'</td></tr>';}).join('')+'</tbody></table>';}
     function kyc(act,id){if(BUSY)return;busyOn();
       api(act==='approve'?'cpKycApprove':'cpKycRevoke',{kycId:id}).then(function(r){busyOff();if(!r.ok){alert(r.error||r.reason);return;}
-        api('cpBoot').then(function(b){if(b.ok){BOOT=b;renderKyc();}});});}
+        api('cpBoot').then(function(b){if(b.ok){BOOT=b;lcPut('cpboot',b);renderKyc();}});});}
 
     /* ---- Dashboard & Report (links) ---- */
     function renderReport(){

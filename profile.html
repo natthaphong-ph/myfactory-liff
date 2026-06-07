@@ -59,20 +59,28 @@
     function api(action,extra){return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
       body:JSON.stringify(Object.assign({action:action,idToken:idToken},extra||{}))}).then(function(r){return r.json();});}
     function esc(s){return String(s==null?'':s).replace(/[&<>]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
+    /* shared cross-page cache */
+    var LC='mfc_';
+    function lcGet(k,ttl){try{var o=JSON.parse(localStorage.getItem(LC+k)||'null');if(o&&(Date.now()-o.t)<ttl*1000)return o.d;}catch(e){}return null;}
+    function lcPut(k,d){try{localStorage.setItem(LC+k,JSON.stringify({t:Date.now(),d:d}));}catch(e){}}
+    function lcClear(){try{Object.keys(localStorage).forEach(function(k){if(k.indexOf(LC)===0)localStorage.removeItem(k);});}catch(e){}}
 
     function boot(){
       liff.init({liffId:LIFF_ID}).then(function(){
         if(!liff.isLoggedIn()){liff.login();return;}
         idToken=liff.getIDToken();
+        var cached=lcGet('profile',120);   // instant paint from cache
+        if(cached){ P=cached; render(); }
         return api('getProfile').then(function(res){
           if(res&&(res.code||res.error)&&/expired|IdToken|verify failed/i.test(res.code||res.error)){ reauth(); return; }
           sessionStorage.removeItem('reauth');
-          if(!res||!res.ok){main.innerHTML='<div class="empty">'+esc((res&&res.error)||'error')+'</div>';return;}
-          P=res.data; render();
+          if(!res||!res.ok){ if(!cached) main.innerHTML='<div class="empty">'+esc((res&&res.error)||'error')+'</div>'; return; }
+          lcPut('profile',res.data); P=res.data; render();
         });
       }).catch(function(e){main.innerHTML='<div class="empty">LINE error: '+esc(e)+'</div>';});
     }
     function reauth(){
+      lcClear();
       if(sessionStorage.getItem('reauth')){main.innerHTML='<div class="empty">เซสชันหมดอายุ — ปิดแล้วเปิดใหม่</div>';return;}
       sessionStorage.setItem('reauth','1'); try{liff.logout();}catch(e){} liff.login();
     }
