@@ -183,7 +183,10 @@
     body.innerHTML='<div class="hello">ยินดีต้อนรับ <b>'+esc(ACCESS.empName||ACCESS.displayName)+'</b>'+(ACCESS.dept?(' · '+esc(ACCESS.dept)):'')+'</div>'+
       '<div class="tiles">'+(tiles||'<div class="empty">ยังไม่ได้รับสิทธิแอปใด</div>')+'</div>';
   }
-  function openApp(url){ location.href=url; }   // manager/admin apps open as their own LIFF page (same login)
+  // Open another app page as a RELATIVE file in the same folder (same LIFF webview + login).
+  // Using liff.line.me/{id}/x.html would append x.html to the endpoint URL and 404, so we
+  // navigate to the bare filename instead (works regardless of how AppURL is written).
+  function openApp(url){ var f=String(url||'').replace(/[#?].*$/,'').split('/').pop(); location.href=f||url; }
 
   /* ===================== PROFILE ===================== */
   function openProfile(){
