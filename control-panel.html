@@ -159,7 +159,8 @@
         '<div class="linkrow soon"><div class="t"><b>TPM TAG dashboard</b><br><span>เร็ว ๆ นี้</span></div></div>'+
         '<div class="linkrow soon"><div class="t"><b>Check-in dashboard</b><br><span>เร็ว ๆ นี้</span></div></div>';
     }
-    function link(url,t,d){return '<a class="linkrow" href="'+esc(url)+'" target="_blank" rel="noopener"><div class="t"><b>'+esc(t)+'</b><br><span>'+esc(d)+'</span></div>↗</a>';}
+    /* same-window nav (NOT target=_blank) so we stay in the LIFF webview/session — no re-login */
+    function link(url,t,d){return '<div class="linkrow" style="cursor:pointer" onclick="location.href=\''+esc(url)+'\'"><div class="t"><b>'+esc(t)+'</b><br><span>'+esc(d)+'</span></div>›</div>';}
 
     /* ---- Configuration ---- */
     function mergeAccess(a){if(a&&a.ok){M.roles=a.roles;M.permissions=a.permissions;M.apps=a.apps;M.userRoles=a.userRoles;M.rolePerms=a.rolePerms;if(!M.employees)M.employees=a.employees;}}
