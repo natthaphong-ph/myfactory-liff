@@ -52,7 +52,7 @@
   <script>
     var LIFF_ID='2010250488-MyQiwlFp';
     var API_URL='https://script.google.com/macros/s/AKfycbyRJP-fDdUKFkAd5LmdBUXVM6wAb83i2leOueJ-d1Uw_czlnujTq-csD2WGGkkxcNWE/exec';
-    var DASH_URL='https://liff.line.me/2010250488-MyQiwlFp/genba-dashboard.html';   // LIFF link = shared login, no re-prompt
+    var DASH_URL='genba-dashboard.html';   // relative = same folder/LIFF webview, shared login (avoids liff.line.me path-append 404)
     var idToken=null, BOOT=null, M=null, SEC='kyc', BUSY=false;
     var $=function(id){return document.getElementById(id);};
     function busyOn(m){BUSY=true;$('busy').textContent=m||'Working…';$('busy').style.display='flex';}
