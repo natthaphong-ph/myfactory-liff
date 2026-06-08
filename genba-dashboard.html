@@ -63,7 +63,7 @@
       <div class="tab" data-t="report" onclick="switchTab('report')">Report</div>
     </div>
     <div class="filters" id="filters">
-      <select id="fdept"></select><select id="farea"></select><select id="fasg"></select>
+      <select id="fdept"></select><select id="farea"></select><select id="fasg"></select><select id="fstatus"></select>
       <button class="btn" onclick="reload()">Show</button>
     </div>
     <div id="main"><div class="empty">Connecting to LINE…</div></div>
@@ -100,7 +100,7 @@
       sessionStorage.setItem('reauth','1'); try{liff.logout();}catch(e){} liff.login();
     }
     function reload(){
-      var filter={dept:$('fdept')?$('fdept').value:'',area:$('farea')?$('farea').value:'',assigned:$('fasg')?$('fasg').value:''};
+      var filter={dept:$('fdept')?$('fdept').value:'',area:$('farea')?$('farea').value:'',assigned:$('fasg')?$('fasg').value:'',status:$('fstatus')?$('fstatus').value:''};
       var key='dash_'+JSON.stringify(filter);
       var cached=ssGet(key,300);   // 5-min TTL
       if(cached){ DATA=cached; $('who').textContent=cached.boot.empName+' · '+(cached.boot.perms||[]).length+' perms'; buildFilters(); render(); }   // instant from cache
@@ -121,6 +121,7 @@
       $('fdept').innerHTML=opt(DATA.boot.departments,'Department — all');
       $('farea').innerHTML=opt(DATA.boot.areas,'Area — all');
       $('fasg').innerHTML='<option value="">Assigned — all</option>'+DATA.boot.assignees.map(function(a){return '<option value="'+esc(a.id)+'">'+esc(a.name)+'</option>';}).join('');
+      $('fstatus').innerHTML=['','Outstanding','Open','In Progress','Done','Closed'].map(function(s){return '<option value="'+esc(s)+'">'+(s===''?'Status — all':esc(s))+'</option>';}).join('');
     }
     function switchTab(t){TAB=t;document.querySelectorAll('.tab').forEach(function(e){e.classList.toggle('active',e.dataset.t===t);});render();}
 
