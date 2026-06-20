@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>POC - LINE to Supabase</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    body{font-family:system-ui,sans-serif;max-width:560px;margin:0 auto;padding:16px;background:#FAFAFA;color:#1E293B}
+    h1{font-size:18px;color:#0F172A}
+    .box{background:#fff;border:1px solid #E5E7EB;border-radius:10px;padding:12px;margin:10px 0}
+    pre{white-space:pre-wrap;word-break:break-all;font-size:12px;margin:0}
+    .ok{color:#0D9488;font-weight:700}.err{color:#EF4444;font-weight:700}
+    .step{font-size:13px;color:#64748B}
+  </style>
+</head>
+<body>
+  <h1>POC: LINE -> Supabase Edge Function</h1>
+  <div class="box"><div class="step" id="step">Connecting to LINE...</div></div>
+  <div class="box"><b>ผลลัพธ์จาก Edge Function:</b><pre id="out">-</pre></div>
+
+  <script>
+    /* ====== CONFIG ====== */
+    var LIFF_ID = '2010250488-MyQiwlFp';
+    var FN_URL  = 'https://jmedgllujclrhpjdrfcu.supabase.co/functions/v1/quick-action';
+    var PUBKEY  = 'sb_publishable_0YCGBZ5wt_dTpDB-TlLpiQ_aGMctwXZ';
+    /* ==================== */
+
+    var step = document.getElementById('step');
+    var out  = document.getElementById('out');
+    function setStep(t,cls){ step.textContent=t; step.className='step '+(cls||''); }
+
+    liff.init({ liffId: LIFF_ID }).then(function(){
+      if(!liff.isLoggedIn()){ setStep('Redirecting to LINE login...'); liff.login(); return; }
+      setStep('Got LINE token. Calling Edge Function...');
+      var idToken = liff.getIDToken();
+      return fetch(FN_URL, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+PUBKEY, 'apikey':PUBKEY },
+        body: JSON.stringify({ idToken: idToken })
+      }).then(function(r){ return r.json(); }).then(function(d){
+        out.textContent = JSON.stringify(d, null, 2);
+        setStep(d && d.ok ? 'SUCCESS - LINE -> Supabase chain works!' : 'Function returned not-ok (see result)', d && d.ok ? 'ok':'err');
+      });
+    }).catch(function(e){
+      out.textContent = 'ERROR: ' + (e && e.message || e);
+      setStep('Error - see result', 'err');
+    });
+  </script>
+</body>
+</html>
