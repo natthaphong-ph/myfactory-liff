@@ -78,7 +78,7 @@
         {f:'CatID',id:true},{f:'CatName'}]},
       {key:'group',title:'Groups',data:'groups',idField:'GroupID',cols:[
         {f:'GroupID',id:true},{f:'GroupName'},{f:'OwnerDept',src:'depts',val:'DeptID',label:'DeptName'}]},
-      {key:'member',title:'Group Members',data:'members',idField:null,addonly:true,cols:[
+      {key:'member',title:'Group Members',data:'members',idField:null,addonly:true,move:true,cols:[
         {f:'GroupID',src:'groups',val:'GroupID',label:'GroupName'},{f:'EmpID',src:'employees',val:'EmpID',label:'FullName'}]}
     ];
     var ACCESS_SECTIONS=[
@@ -118,6 +118,8 @@
         });
       }).catch(function(e){$('main').innerHTML='<div class="empty">LINE error: '+e+'</div>';});
     }
+    /* re-fetch boot (KYC list + perms) — used after changes that affect KYC, e.g. employee active/inactive */
+    function refreshBoot(cb){api('cpBoot').then(function(r){if(r&&r.ok){BOOT=r;lcPut('cpboot',r);}if(cb)cb();});}
     function buildNav(){
       var h='';
       if(BOOT.canApprove){h+='<div class="grp">Approve</div><div class="grpd">อนุมัติสิทธิผู้ใช้งาน</div>'+navItem('kyc','ti','KYC approval');}
@@ -209,7 +211,7 @@
       var s=sec_(secKey); if(!s)return;
       var rows=M[s.data]||[];
       var head='<tr>'+s.cols.map(function(c){return '<th>'+c.f+'</th>';}).join('')+'<th></th></tr>';
-      var body=rows.map(function(r){
+      var body=rows.map(function(r,ri){
         var idv=s.idField?r[s.idField]:'';
         var cells=s.cols.map(function(c){
           if(c.id) return '<td><span style="color:var(--muted)">🔒 '+esc(r[c.f])+'</span></td>';
@@ -220,7 +222,14 @@
         if(s.addonly){
           var match={}; s.cols.forEach(function(c){match[c.f]=r[c.f];});
           var enc=encodeURIComponent(JSON.stringify(match));
-          tail='<td><button class="btn sm rv" onclick="revokeRow(\''+secKey+'\',\''+enc+'\')">Revoke</button></td>';
+          var mv='';
+          if(s.move){
+            var selId='mv_'+secKey+'_'+ri;
+            var optsG=(M['groups']||[]).map(function(g){return '<option value="'+esc(g.GroupID)+'"'+(g.GroupID===r['GroupID']?' disabled':'')+'>'+esc(g.GroupName)+'</option>';}).join('');
+            mv='<select id="'+selId+'" style="width:auto;display:inline-block;margin-right:6px"><option value="">ย้ายไป…</option>'+optsG+'</select>'+
+               '<button class="btn sm" onclick="moveMember(\''+esc(r['EmpID'])+'\',\''+esc(r['GroupID'])+'\',\''+selId+'\')">ย้าย</button> ';
+          }
+          tail='<td style="white-space:nowrap">'+mv+'<button class="btn sm rv" onclick="revokeRow(\''+secKey+'\',\''+enc+'\')">Revoke</button></td>';
         } else {
           tail='<td><button class="btn sm" onclick="saveRow(\''+secKey+'\',\''+esc(idv)+'\')">Save</button></td>';
         }
@@ -236,7 +245,7 @@
       if(BUSY)return;var s=sec_(secKey);var patch={};
       s.cols.forEach(function(c){if(c.id)return;patch[c.f]=$('e_'+secKey+'_'+idv+'_'+c.f).value;});
       busyOn('Saving…');
-      api('cpUpdateRow',{table:secKey,idField:s.idField,idValue:idv,patch:patch}).then(function(r){busyOff();if(!r.ok){alert(r.error||r.reason);return;}M=null;loadConfig(secKey);});
+      api('cpUpdateRow',{table:secKey,idField:s.idField,idValue:idv,patch:patch}).then(function(r){busyOff();if(!r.ok){alert(r.error||r.reason);return;}M=null;if(secKey==='emp')refreshBoot();loadConfig(secKey);});
     }
     function addRow(secKey){
       if(BUSY)return;var s=sec_(secKey);
@@ -255,6 +264,19 @@
       api('cpRevoke',{table:secKey,match:match}).then(function(r){busyOff();
         if(!r.ok){alert(r.error||r.reason);return;}
         M=null;loadConfig(secKey);});
+    }
+    /* move a member to another group in one click: revoke old membership + add new (upsert reactivates) */
+    function moveMember(empId,fromGroup,selId){
+      if(BUSY)return;
+      var toGroup=$(selId)?$(selId).value:'';
+      if(!toGroup){alert('เลือกกลุ่มปลายทางก่อน');return;}
+      if(toGroup===fromGroup){alert('กลุ่มปลายทางต้องต่างจากกลุ่มเดิม');return;}
+      if(!confirm('ย้าย '+empId+' ไปกลุ่มใหม่?'))return;
+      busyOn('Moving…');
+      api('cpRevoke',{table:'member',match:{GroupID:fromGroup,EmpID:empId}}).then(function(r1){
+        if(!r1||!r1.ok){busyOff();alert((r1&&(r1.error||r1.reason))||'revoke failed');return null;}
+        return api('cpAddRow',{table:'member',row:{GroupID:toGroup,EmpID:empId}});
+      }).then(function(r2){if(!r2)return;busyOff();if(!r2.ok){alert(r2.error||r2.reason);return;}M=null;loadConfig('member');});
     }
     /* ---- sortable table headers: click any column to sort, click again to reverse ---- */
     function cellVal(td){if(!td)return '';var inp=td.querySelector('input,select');if(inp){if(inp.tagName==='SELECT'){var o=inp.options[inp.selectedIndex];return o?o.text:inp.value;}return inp.value;}return (td.innerText||td.textContent||'').trim();}
