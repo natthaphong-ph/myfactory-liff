@@ -48,9 +48,10 @@
     .cardh{font-size:13px;font-weight:700;color:var(--navy)}
     .listh{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap}
     .filterbox{width:240px;max-width:60%}
-    .tablewrap{overflow:auto;max-height:calc(100vh - 320px);min-height:140px;-webkit-overflow-scrolling:touch}
+    .tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
     .tablewrap table{margin:0}
-    .tablewrap thead th{position:sticky;top:0;background:#fff;z-index:1;box-shadow:inset 0 -1px 0 var(--border)}
+    /* the Add frame sticks just under the fixed header while the list scrolls with the page */
+    .addcard{position:sticky;top:56px;z-index:6}
     /* buttons */
     .btn{border:none;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer;color:#fff;background:var(--teal);font-family:inherit;transition:background .12s,transform .05s,box-shadow .12s}
     .btn:hover{background:var(--teal-d);box-shadow:var(--shadow)} .btn:active{transform:translateY(1px)}
@@ -73,7 +74,6 @@
       .shell{flex-direction:column}
       nav{width:auto;border-right:none;border-bottom:1px solid var(--border)}
       main{padding:14px}
-      .tablewrap{max-height:58vh}
       .listh{flex-direction:column;align-items:stretch}
       .filterbox{width:100%;max-width:100%}
       .who{display:none}
@@ -261,7 +261,18 @@
     }
     function renderConfig(secKey){
       var s=sec_(secKey); if(!s)return;
-      var rows=M[s.data]||[];
+      /* default order: sort by columns left-to-right (following the header) */
+      var rows=(M[s.data]||[]).slice().sort(function(a,b){
+        for(var k=0;k<s.cols.length;k++){var c=s.cols[k];
+          var va=String(resolveCell(secKey,c.f,a[c.f])==null?'':resolveCell(secKey,c.f,a[c.f]));
+          var vb=String(resolveCell(secKey,c.f,b[c.f])==null?'':resolveCell(secKey,c.f,b[c.f]));
+          var na=parseFloat(va.replace(/[^0-9.\-]/g,'')), nb=parseFloat(vb.replace(/[^0-9.\-]/g,''));
+          var num=va!==''&&vb!==''&&!isNaN(na)&&!isNaN(nb)&&/^[\s\d.\-]+$/.test(va)&&/^[\s\d.\-]+$/.test(vb);
+          var cmp=num?(na-nb):va.localeCompare(vb,'th');
+          if(cmp)return cmp;
+        }
+        return 0;
+      });
       var head='<tr>'+s.cols.map(function(c){return '<th>'+c.f+'</th>';}).join('')+'<th></th></tr>';
       var body=rows.map(function(r,ri){
         var idv=s.idField?r[s.idField]:'';
@@ -288,7 +299,7 @@
         return '<tr>'+cells+tail+'</tr>';
       }).join('');
       var inputs=s.cols.map(function(c){return fieldHtml('add_'+secKey+'_'+c.f,c,'',true);}).join('');
-      var addcard=s.noadd?'':'<div class="card"><div class="cardh">Add new</div><div class="addrow">'+inputs+'<button class="btn" onclick="addRow(\''+secKey+'\')">+ Add</button></div></div>';
+      var addcard=s.noadd?'':'<div class="card addcard"><div class="cardh">Add new</div><div class="addrow">'+inputs+'<button class="btn" onclick="addRow(\''+secKey+'\')">+ Add</button></div></div>';
       var hint=s.addonly?'Add new above · list below (filter &amp; sort)':'ID locked 🔒 · edit fields then Save';
       var listcard='<div class="card listcard"><div class="listh"><div class="cardh">List ('+rows.length+')</div>'+
         '<input class="filterbox" placeholder="🔎 Filter…" oninput="filterTable(this)"></div>'+
