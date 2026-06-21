@@ -32,6 +32,7 @@
     .charts{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px}
     .card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px}
     .card h3{font-size:14px;margin:0 0 10px;color:var(--navy);font-weight:600}
+    h3.sec{font-size:15px;margin:24px 0 12px;color:var(--navy);font-weight:700;border-left:3px solid var(--teal);padding-left:10px}
     table{width:100%;border-collapse:collapse;font-size:13px}
     th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--border)}
     th{color:var(--muted);font-size:11px;text-transform:uppercase}
@@ -143,8 +144,59 @@
         chartBox('By severity','cSev')+chartBox('By 5S category','cCat')+'</div>'+
         '<div class="card" style="margin-bottom:14px"><h3>Overdue findings</h3>'+overdueTable(DATA.overdueList)+'</div>'+
         '<div class="card"><h3>Top recurring (area · category)</h3>'+recurTable(DATA.topRecur)+'</div>';
+      /* ---- 5S Score ---- */
+      var s5=compute5S();
+      h+='<h3 class="sec">5S Score</h3>'+
+        '<div class="kpis">'+kpi('Safety findings (open)',s5.safety.open,'red')+kpi('5S avg compliance',s5.avgComp+'%','green')+kpi('Weakest S',s5.weakest)+'</div>'+
+        '<div class="charts">'+chartBox('Open findings by 5S (radar)','c5sRadar')+
+        '<div class="card"><h3>5S compliance (closed ÷ total)</h3>'+fiveSTable(s5)+'</div></div>';
+      /* ---- KAIZEN (by team) ---- */
+      var kz=computeKaizen();
+      h+='<h3 class="sec">KAIZEN — improvement activity (by team)</h3>'+
+        '<div class="kpis">'+kpi('Total resolved',kz.totalClosed,'green')+kpi('Active groups',kz.activeGroups)+'</div>'+
+        '<div class="charts">'+chartBox('Resolved by group','cResolved')+
+        '<div class="card"><h3>Resolution rate by group</h3>'+resolutionTable(kz)+'</div></div>'+
+        '<div class="card"><h3>Before / After — recently closed (click to view)</h3>'+kaizenGallery()+'</div>';
       $('main').innerHTML=h;
       drawCharts();
+    }
+    /* ===== 5S + KAIZEN computations (client-side, from DATA.findings) ===== */
+    function compute5S(){
+      var S=['1S','2S','3S','4S','5S'], open={},total={},closed={};
+      S.forEach(function(s){open[s]=0;total[s]=0;closed[s]=0;});
+      var safety={open:0,total:0};
+      (DATA.findings||[]).forEach(function(f){var c=f.category;
+        if(c==='SA'){safety.total++;if(f.status!=='Closed')safety.open++;return;}
+        if(open[c]===undefined)return; total[c]++; if(f.status==='Closed')closed[c]++; else open[c]++;});
+      var comps=[],weakest='—',minC=999;
+      S.forEach(function(s){var comp=total[s]?Math.round(closed[s]/total[s]*100):0;comps.push(comp);if(total[s]&&comp<minC){minC=comp;weakest=s;}});
+      var avgComp=comps.length?Math.round(comps.reduce(function(a,b){return a+b;},0)/comps.length):0;
+      return {S:S,open:open,total:total,closed:closed,safety:safety,avgComp:avgComp,weakest:weakest};
+    }
+    function fiveSTable(s5){
+      var nm={'1S':'1S Sort','2S':'2S Set','3S':'3S Shine','4S':'4S Standardize','5S':'5S Sustain'};
+      return '<table><thead><tr><th>5S</th><th>Closed</th><th>Total</th><th>Compliance</th></tr></thead><tbody>'+
+        s5.S.map(function(s){var comp=s5.total[s]?Math.round(s5.closed[s]/s5.total[s]*100):0;var col=comp>=80?'var(--green)':(comp>=50?'var(--amber)':'var(--red)');
+          return '<tr><td>'+nm[s]+'</td><td>'+s5.closed[s]+'</td><td>'+s5.total[s]+'</td><td style="font-weight:600;color:'+col+'">'+comp+'%</td></tr>';}).join('')+'</tbody></table>';
+    }
+    function computeKaizen(){
+      var closed={},total={};
+      (DATA.findings||[]).forEach(function(f){var g=asgName(f.ownerEmpId);total[g]=(total[g]||0)+1;if(f.status==='Closed')closed[g]=(closed[g]||0)+1;});
+      var totalClosed=0;Object.keys(closed).forEach(function(g){totalClosed+=closed[g];});
+      return {closed:closed,total:total,totalClosed:totalClosed,activeGroups:Object.keys(closed).length};
+    }
+    function resolutionTable(kz){
+      var gs=Object.keys(kz.total).sort(function(a,b){return kz.total[b]-kz.total[a];});
+      if(!gs.length)return '<div class="empty">None</div>';
+      return '<table><thead><tr><th>Group</th><th>Closed</th><th>Total</th><th>Rate</th></tr></thead><tbody>'+
+        gs.map(function(g){var c=kz.closed[g]||0,t=kz.total[g],rate=t?Math.round(c/t*100):0;var col=rate>=80?'var(--green)':(rate>=50?'var(--amber)':'var(--red)');
+          return '<tr><td>'+esc(g)+'</td><td>'+c+'</td><td>'+t+'</td><td style="font-weight:600;color:'+col+'">'+rate+'%</td></tr>';}).join('')+'</tbody></table>';
+    }
+    function kaizenGallery(){
+      var cl=(DATA.findings||[]).filter(function(f){return f.status==='Closed'&&f.cover;});
+      cl.sort(function(a,b){return String(b.date||'').localeCompare(String(a.date||''));});cl=cl.slice(0,9);
+      if(!cl.length)return '<div class="empty">No closed findings with photos yet</div>';
+      return '<div class="gallery">'+cl.map(function(f){return '<img src="'+esc(thumb(f.cover,300))+'" referrerpolicy="no-referrer" loading="lazy" style="cursor:pointer" onclick="openEdit(\''+f.findingId+'\')" title="'+esc(f.areaName+' · '+f.categoryName)+'">';}).join('')+'</div>';
     }
     function kpi(l,v,c){return '<div class="kpi"><div class="l">'+l+'</div><div class="v'+(c?(' '+c):'')+'">'+v+'</div></div>';}
     function chartBox(t,id){return '<div class="card"><h3>'+t+'</h3><canvas id="'+id+'" height="150"></canvas></div>';}
@@ -169,6 +221,13 @@
       charts.age=new Chart($('cAge'),{type:'bar',data:{labels:['0-7d','8-30d','31-90d','>90d'],datasets:[{data:[ag.d0_7,ag.d8_30,ag.d31_90,ag.d90],backgroundColor:['#10B981','#0D9488','#D97706','#EF4444']}]},options:O});
       charts.s=new Chart($('cSev'),{type:'bar',data:{labels:Object.keys(DATA.bySeverity),datasets:[{data:Object.values(DATA.bySeverity),backgroundColor:'#D97706'}]},options:O});
       charts.c=new Chart($('cCat'),{type:'bar',data:barData(DATA.byCategory,'#0D9488'),options:O});
+      /* 5S radar (open per S) */
+      if($('c5sRadar')){var s5=compute5S();
+        charts.r5=new Chart($('c5sRadar'),{type:'radar',data:{labels:['1S','2S','3S','4S','5S'],datasets:[{label:'Open',data:s5.S.map(function(s){return s5.open[s];}),backgroundColor:'rgba(13,148,136,.2)',borderColor:'#0D9488',pointBackgroundColor:'#0D9488'}]},
+          options:{responsive:true,plugins:{legend:{display:false}},scales:{r:{beginAtZero:true,ticks:{precision:0}}}}});}
+      /* KAIZEN resolved by group */
+      if($('cResolved')){var kz=computeKaizen();
+        charts.rv=new Chart($('cResolved'),{type:'bar',data:barData(kz.closed,'#10B981'),options:O});}
     }
 
     /* ---------- Findings (manage) ---------- */
@@ -241,14 +300,38 @@
     /* ---------- Report (printable) ---------- */
     function renderReport(){
       var k=DATA.kpi, d=new Date();
+      var topR=(DATA.topRecur&&DATA.topRecur[0])?DATA.topRecur[0]:null, s5=compute5S();
+      var summary='As of '+d.toLocaleDateString()+', '+k.open+' findings are open ('+k.overdue+' overdue). On-time close '+k.onTimePct+'%, average '+k.avgDays+' days to close. 5S avg compliance '+s5.avgComp+'% (weakest: '+s5.weakest+').'+(topR?(' Top recurring: '+esc(topR.k)+' ('+topR.n+'×) — focus here.'):'');
       $('main').innerHTML='<div class="card" id="reportArea">'+
         '<h3 style="font-size:18px">Genba & 5S Report — '+d.toLocaleDateString()+'</h3>'+
         '<p style="font-size:13px;color:var(--muted)">Filter: '+(($('fdept').value||'All dept')+' · '+($('farea').value||'All area'))+'</p>'+
+        '<div class="card" style="background:var(--surface);border:none;margin-bottom:14px"><b style="color:var(--navy)">Executive summary</b><p style="font-size:13px;margin:6px 0 0;line-height:1.7">'+summary+'</p></div>'+
         '<div class="kpis">'+kpi('Open',k.open)+kpi('Overdue',k.overdue)+kpi('On-time %',k.onTimePct+'%')+kpi('Avg days',k.avgDays)+kpi('With WO',k.withWO)+'</div>'+
-        '<h3>Overdue findings</h3>'+overdueTable(DATA.overdueList)+
+        '<h3>Area scorecard</h3>'+areaScorecard()+
+        '<h3 style="margin-top:14px">5S compliance</h3>'+fiveSTable(s5)+
+        '<h3 style="margin-top:14px">Overdue findings</h3>'+overdueTable(DATA.overdueList)+
         '<h3 style="margin-top:14px">Top recurring</h3>'+recurTable(DATA.topRecur)+
         '</div>'+
-        '<button class="btn amber" style="margin-top:14px" onclick="window.print()">Print / Save PDF</button>';
+        '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">'+
+          '<button class="btn amber" onclick="window.print()">Print / Save PDF</button>'+
+          '<button class="btn sec" onclick="exportCSV()">Export CSV</button>'+
+        '</div>';
+    }
+    function areaScorecard(){
+      var m={};
+      (DATA.findings||[]).forEach(function(f){var a=f.areaName||'—';var r=m[a]||(m[a]={area:a,total:0,open:0,closed:0,overdue:0});
+        r.total++;var isOpen=['Open','In Progress','Done'].indexOf(f.status)>-1;if(isOpen)r.open++;if(f.status==='Closed')r.closed++;
+        if(isOpen&&f.dueDate&&new Date(f.dueDate)<new Date())r.overdue++;});
+      var rows=Object.keys(m).map(function(a){return m[a];}).sort(function(x,y){return y.open-x.open;});
+      if(!rows.length)return '<div class="empty">None</div>';
+      return '<table><thead><tr><th>Area</th><th>Open</th><th>Overdue</th><th>Closed</th><th>Total</th></tr></thead><tbody>'+
+        rows.map(function(r){return '<tr><td>'+esc(r.area)+'</td><td>'+r.open+'</td><td class="'+(r.overdue?'late':'')+'">'+r.overdue+'</td><td>'+r.closed+'</td><td>'+r.total+'</td></tr>';}).join('')+'</tbody></table>';
+    }
+    function exportCSV(){
+      var rows=DATA.findings||[],cols=['findingId','date','areaName','categoryName','severity','status','ownerName','dueDate','remark'];
+      var csv=cols.join(',')+'\n'+rows.map(function(f){return cols.map(function(c){return '"'+String(f[c]==null?'':f[c]).replace(/"/g,'""')+'"';}).join(',');}).join('\n');
+      var blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob);
+      var a=document.createElement('a');a.href=url;a.download='genba_findings_'+new Date().toISOString().slice(0,10)+'.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
     }
 
     boot();
