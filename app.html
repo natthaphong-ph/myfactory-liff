@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-  <title>My Factory</title>
+  <title>My Factory (Supabase)</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <script src="browser-image-compression.js"></script>
   <link rel="preconnect" href="https://cdn.jsdelivr.net">
@@ -68,6 +68,7 @@
     .warn{background:#FFFBEB;border:1px solid #FDE68A;color:#92400E;border-radius:10px;padding:10px;font-size:13px;margin-bottom:12px}
     .state{text-align:center;padding:30px 10px}.state .ic{font-size:42px}.state h2{font-size:18px;color:var(--navy);margin:12px 0 6px}.state p{font-size:14px;color:var(--muted);margin:0}
     .spin{display:flex;justify-content:center;padding:34px}
+    .sbtag{position:fixed;left:8px;bottom:64px;background:#0F766E;color:#fff;font-size:10px;padding:3px 8px;border-radius:6px;z-index:9;opacity:.85}
   </style>
 </head>
 <body>
@@ -77,25 +78,27 @@
   </div>
   <nav class="tabs" id="tabs" style="display:none"></nav>
   <button class="fab" id="fab" style="display:none">+ New</button>
+  <div class="sbtag">Supabase</div>
 
   <script>
-  /* ===================== CONFIG ===================== */
+  /* ===================== CONFIG (Supabase backend) ===================== */
   var LIFF_ID='2010250488-MyQiwlFp';
-  var API_URL='https://script.google.com/macros/s/AKfycbyRJP-fDdUKFkAd5LmdBUXVM6wAb83i2leOueJ-d1Uw_czlnujTq-csD2WGGkkxcNWE/exec';
-  var LIFF_BASE='https://liff.line.me/'+LIFF_ID+'/';
-  /* ================================================= */
+  var FN_URL='https://jmedgllujclrhpjdrfcu.supabase.co/functions/v1/line-auth';
+  var PUBKEY='sb_publishable_0YCGBZ5wt_dTpDB-TlLpiQ_aGMctwXZ';
+  /* ==================================================================== */
 
-  var idToken=null, ACCESS=null, G=null, P=null;        // access(menu) / genba boot / profile
+  var idToken=null, ACCESS=null, G=null, P=null;
   var SEC='home', BUSY=false;
   var body=document.getElementById('body'), titleEl=document.getElementById('title'),
       whoEl=document.getElementById('who'), bk=document.getElementById('bk'),
       tabsEl=document.getElementById('tabs'), fab=document.getElementById('fab');
 
-  function api(action,extra){return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+  function api(action,extra){return fetch(FN_URL,{method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+PUBKEY,'apikey':PUBKEY},
     body:JSON.stringify(Object.assign({action:action,idToken:idToken},extra||{}))}).then(function(r){return r.json();});}
   function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
   /* localStorage SWR cache */
-  var LC='mfc_';
+  var LC='mfcsb_';
   function lcGet(k,ttl){try{var o=JSON.parse(localStorage.getItem(LC+k)||'null');if(o&&(Date.now()-o.t)<ttl*1000)return o.d;}catch(e){}return null;}
   function lcPut(k,d){try{localStorage.setItem(LC+k,JSON.stringify({t:Date.now(),d:d}));}catch(e){}}
   function lcDel(k){try{localStorage.removeItem(LC+k);}catch(e){}}
@@ -121,7 +124,7 @@
       idToken=liff.getIDToken();
       var cached=lcGet('access',120);
       if(cached) applyAccess(cached,true);
-      return api('checkAccess').then(function(res){
+      return api('boot').then(function(res){
         if(res&&(res.code||res.error)&&/expired|IdToken|verify failed/i.test(res.code||res.error)){reauth();return;}
         sessionStorage.removeItem('reauth');
         if(!res||!res.ok){if(!cached)body.innerHTML='<div class="empty">'+esc((res&&res.error)||'No access')+'</div>';return;}
@@ -133,8 +136,9 @@
     sessionStorage.setItem('reauth','1');try{liff.logout();}catch(e){}liff.login();}
 
   function applyAccess(res,fromCache){
-    ACCESS=res.data;
-    var d=ACCESS;
+    var d = (res.state==='active') ? Object.assign({state:'active'}, res.profile||{})
+                                   : {state:res.state, displayName:res.lineName||'', lineName:res.lineName||''};
+    ACCESS=d;
     if(d.state==='active'){ whoEl.textContent=esc(d.empName||d.displayName||''); buildTabs(); if(SEC==='home'||!SEC)show('home'); else show(SEC); }
     else { tabsEl.style.display='none'; fab.style.display='none';
       if(d.state==='not_registered'||d.state==='reverify_required') renderRegister(d, d.state==='reverify_required');
@@ -168,7 +172,7 @@
   }
 
   /* ===================== HOME (launcher) ===================== */
-  var APP_VIEW={APP_GENBA:'genba',APP_KYC:'profile'};   // internal views
+  var APP_VIEW={APP_GENBA:'genba',APP_KYC:'profile'};
   var APP_ICON={APP_GENBA:'▤',APP_KYC:'▣',APP_ADMIN:'⚙',APP_TPMTAG:'⬡',APP_CHECKIN:'◷',APP_MACHK:'▦'};
   function renderHome(){
     titleEl.textContent='My Factory';
@@ -183,9 +187,6 @@
     body.innerHTML='<div class="hello">ยินดีต้อนรับ <b>'+esc(ACCESS.empName||ACCESS.displayName)+'</b>'+(ACCESS.dept?(' · '+esc(ACCESS.dept)):'')+'</div>'+
       '<div class="tiles">'+(tiles||'<div class="empty">ยังไม่ได้รับสิทธิแอปใด</div>')+'</div>';
   }
-  // Open another app page as a RELATIVE file in the same folder (same LIFF webview + login).
-  // Using liff.line.me/{id}/x.html would append x.html to the endpoint URL and 404, so we
-  // navigate to the bare filename instead (works regardless of how AppURL is written).
   function openApp(url){ var f=String(url||'').replace(/[#?].*$/,'').split('/').pop(); location.href=f||url; }
 
   /* ===================== PROFILE ===================== */
@@ -207,7 +208,7 @@
       '<div class="sub" style="color:var(--muted);font-size:13px">'+esc(P.position||'')+(P.dept?(' · '+esc(P.dept)):'')+'</div><div style="height:8px"></div>'+
       '<div class="kv"><span class="k">Employee ID</span><b>'+esc(P.empId||'-')+'</b></div>'+
       '<div class="kv"><span class="k">KYC status</span><span class="badge s-'+(P.kycStatus==='active'?'Closed':(P.kycStatus==='revoked'?'Open':'InProgress'))+'">'+esc(P.kycStatus)+'</span></div>'+
-      '<div class="kv"><span class="k">Valid until</span><b>'+esc(P.validUntil||'-')+'</b></div></div>'+
+      '<div class="kv"><span class="k">Valid until</span><b>'+esc((P.validUntil||'-')).slice(0,10)+'</b></div></div>'+
       '<div class="card"><div class="sec-title">บทบาท</div>'+((P.roles&&P.roles.length)?P.roles.map(function(r){return '<span class="chip">'+esc(r)+'</span>';}).join(''):'<span class="sub">ไม่มี</span>')+'</div>'+
       '<button class="btn sec" onclick="reverify()">↻ ยืนยันตัวตนใหม่ (KYC)</button>';
     body.innerHTML=h;
@@ -228,7 +229,7 @@
 
   /* ===================== GENBA ===================== */
   var ASSIGNEE={}, LISTALL=[], SHOWN=0, PAGE=30, FILTERED=false, CURFILTER=null, beforeFiles=[];
-  var GVIEW='list';   // genba sub-view: list | form | detail (prevents revalidate from overwriting)
+  var GVIEW='list';
   function openGenba(){
     titleEl.textContent='Genba & 5S Walk'; GVIEW='list';
     var cached=lcGet('genbaInit',300);
@@ -238,13 +239,13 @@
       if(r&&(r.code||r.error)&&/expired|IdToken|verify failed/i.test(r.code||r.error)){reauth();return;}
       if(!r||!r.ok){if(!cached)body.innerHTML='<div class="empty">'+esc((r&&r.error)||'No Genba access')+'</div>';return;}
       lcPut('genbaInit',{boot:r.boot,findings:r.findings});G=r.boot;buildAsg();
-      if(SEC==='genba'&&GVIEW==='list'&&!FILTERED)renderGList(r.findings);   // don't overwrite form/detail
+      if(SEC==='genba'&&GVIEW==='list'&&!FILTERED)renderGList(r.findings);
     });
   }
   function buildAsg(){ASSIGNEE={};(G.assignees||[]).forEach(function(a){ASSIGNEE[a.id]=a;});}
   function asgLabel(id){if(!id)return '—';var a=ASSIGNEE[id];return a?(a.type==='group'?'👥 ':'👤 ')+a.name:id;}
   function gopts(arr,bl){return '<option value="">'+(bl||'— All —')+'</option>'+(arr||[]).map(function(x){return '<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>';}).join('');}
-  function thumb(u,w){return u?u.replace('/uc?id=','/thumbnail?id=')+'&sz=w'+(w||200):'';}
+  function thumb(u,w){return u||'';}   /* Supabase Storage URLs are already public images */
   function gcard(f){var img=f.cover?'<img src="'+esc(thumb(f.cover,200))+'" referrerpolicy="no-referrer" loading="lazy">':'<div class="ph">no photo</div>';
     return '<div class="card lcard" onclick="gDetail(\''+f.findingId+'\')">'+img+'<div><div class="ttl">'+esc(f.areaName)+'</div><div class="sub">'+esc(f.categoryName)+' · '+esc(f.severity)+' · '+esc(f.date)+'</div><div class="sub">→ '+esc(asgLabel(f.ownerEmpId))+'</div><span class="badge s-'+f.status.replace(/\s/g,'')+'">'+esc(f.status)+'</span></div></div>';}
   function renderGList(initial){
@@ -304,8 +305,7 @@
     api('genbaCreate',{payload:payload}).then(function(r){busyOff();
       if(!r.ok){b.disabled=false;b.textContent='Submit finding';err.textContent=r.error||r.reason||'error';return;}
       beforeFiles=[];lcDel('genbaInit');show('genba');uploadBatch(r.findingId,files,'before');});}
-  /* batch upload (1 round-trip) + toast */
-  /* resize photos ONE AT A TIME (parallel compression hangs iOS / spikes memory) */
+  /* batch upload (1 round-trip) + toast — sequential resize (iOS-safe) */
   function resizeSeq(files,i,acc){
     if(i>=files.length) return Promise.resolve(acc);
     toast('กำลังเตรียมรูป '+(i+1)+'/'+files.length+'…');

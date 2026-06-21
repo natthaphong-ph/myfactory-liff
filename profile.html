@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-  <title>My Profile</title>
+  <title>My Profile (Supabase)</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <link rel="preconnect" href="https://cdn.jsdelivr.net">
   <link rel="stylesheet" href="fonts/plex-thai.css">
@@ -22,8 +22,7 @@
     header.bar h1{font-size:18px;margin:0;font-weight:500;color:#fff}
     header.bar p{margin:4px 0 0;font-size:12px;color:#cbd5e1}
     main.wrap{flex:1;padding:16px}
-    .card{background:#fff;border:0.5px solid var(--border);border-radius:14px;padding:16px;margin-bottom:14px;
-      box-shadow:0 1px 3px rgba(15,23,42,.04)}
+    .card{background:#fff;border:0.5px solid var(--border);border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:0 1px 3px rgba(15,23,42,.04)}
     .name{font-size:20px;font-weight:600;color:var(--navy)}
     .sub{font-size:13px;color:var(--muted);margin-top:2px}
     .row{display:flex;justify-content:space-between;font-size:14px;padding:8px 0;border-bottom:1px solid var(--surface)}
@@ -41,6 +40,7 @@
     input::placeholder,textarea::placeholder{color:#94A3B8!important;font-weight:400}
     .spin{display:flex;justify-content:center;padding:36px}
     .empty{color:var(--muted);font-size:14px;text-align:center;padding:30px}
+    .sbtag{position:fixed;left:8px;bottom:8px;background:#0F766E;color:#fff;font-size:10px;padding:3px 8px;border-radius:6px;z-index:9;opacity:.85}
   </style>
 </head>
 <body>
@@ -48,19 +48,21 @@
     <header class="bar"><h1>My Profile</h1><p>My Factory · KYC</p></header>
     <main class="wrap" id="main"><div class="spin" aria-busy="true">กำลังโหลด…</div></main>
   </div>
+  <div class="sbtag">Supabase</div>
 
   <script>
-    /* ===== CONFIG (same LIFF app + API) ===== */
+    /* ===== CONFIG (Supabase backend) ===== */
     var LIFF_ID = '2010250488-MyQiwlFp';
-    var API_URL = 'https://script.google.com/macros/s/AKfycbyRJP-fDdUKFkAd5LmdBUXVM6wAb83i2leOueJ-d1Uw_czlnujTq-csD2WGGkkxcNWE/exec';
-    /* ======================================== */
+    var FN_URL  = 'https://jmedgllujclrhpjdrfcu.supabase.co/functions/v1/line-auth';
+    var PUBKEY  = 'sb_publishable_0YCGBZ5wt_dTpDB-TlLpiQ_aGMctwXZ';
+    /* ===================================== */
 
     var idToken=null, P=null, main=document.getElementById('main');
-    function api(action,extra){return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+    function api(action,extra){return fetch(FN_URL,{method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+PUBKEY,'apikey':PUBKEY},
       body:JSON.stringify(Object.assign({action:action,idToken:idToken},extra||{}))}).then(function(r){return r.json();});}
     function esc(s){return String(s==null?'':s).replace(/[&<>]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
-    /* shared cross-page cache */
-    var LC='mfc_';
+    var LC='mfcsb_';
     function lcGet(k,ttl){try{var o=JSON.parse(localStorage.getItem(LC+k)||'null');if(o&&(Date.now()-o.t)<ttl*1000)return o.d;}catch(e){}return null;}
     function lcPut(k,d){try{localStorage.setItem(LC+k,JSON.stringify({t:Date.now(),d:d}));}catch(e){}}
     function lcClear(){try{Object.keys(localStorage).forEach(function(k){if(k.indexOf(LC)===0)localStorage.removeItem(k);});}catch(e){}}
@@ -69,7 +71,7 @@
       liff.init({liffId:LIFF_ID}).then(function(){
         if(!liff.isLoggedIn()){liff.login();return;}
         idToken=liff.getIDToken();
-        var cached=lcGet('profile',120);   // instant paint from cache
+        var cached=lcGet('profile',120);
         if(cached){ P=cached; render(); }
         return api('getProfile').then(function(res){
           if(res&&(res.code||res.error)&&/expired|IdToken|verify failed/i.test(res.code||res.error)){ reauth(); return; }
@@ -84,17 +86,14 @@
       if(sessionStorage.getItem('reauth')){main.innerHTML='<div class="empty">เซสชันหมดอายุ — ปิดแล้วเปิดใหม่</div>';return;}
       sessionStorage.setItem('reauth','1'); try{liff.logout();}catch(e){} liff.login();
     }
-
     function badge(s){var c=s==='active'?'b-active':(s==='revoked'?'b-revoked':'b-pending');return '<span class="badge '+c+'">'+esc(s)+'</span>';}
 
     function render(){
       if(P.state==='not_registered'){main.innerHTML='<div class="empty">ยังไม่ได้ลงทะเบียน เปิดแอป KYC เพื่อลงทะเบียน</div>';return;}
-
       var h='';
       if(P.expired && P.kycStatus==='active') h+='<div class="warn">⏰ KYC หมดอายุ — กรุณายืนยันใหม่เพื่อคงสิทธิ</div>';
       if(P.kycStatus==='pending') h+='<div class="warn">⏳ รอผู้ดูแลอนุมัติ</div>';
       if(P.kycStatus==='revoked') h+='<div class="warn">⛔ สิทธิถูกถอน ติดต่อผู้ดูแลระบบ</div>';
-
       h+='<article class="card">'+
         '<div class="name">'+esc(P.empName||P.lineName)+'</div>'+
         '<div class="sub">'+esc(P.position||'')+(P.dept?(' · '+esc(P.dept)):'')+'</div>'+
@@ -102,29 +101,24 @@
         '<div class="row"><span class="k">Employee ID</span><span class="v">'+esc(P.empId||'-')+'</span></div>'+
         '<div class="row"><span class="k">LINE name</span><span class="v">'+esc(P.lineName||'-')+'</span></div>'+
         '<div class="row"><span class="k">KYC status</span><span class="v">'+badge(P.kycStatus)+'</span></div>'+
-        '<div class="row"><span class="k">Valid until</span><span class="v">'+esc(P.validUntil||'-')+'</span></div>'+
+        '<div class="row"><span class="k">Valid until</span><span class="v">'+esc((P.validUntil||'-')).slice(0,10)+'</span></div>'+
         '</article>';
-
       h+='<article class="card"><div class="sec-title">บทบาท (Roles)</div>'+
         (P.roles&&P.roles.length? P.roles.map(function(r){return '<span class="chip">'+esc(r)+'</span>';}).join('') : '<span class="sub">ไม่มี</span>')+
         '</article>';
-
       h+='<article class="card"><div class="sec-title">แอป &amp; สิทธิ (Apps &amp; permissions)</div>'+
         (P.apps&&P.apps.length? P.apps.map(function(a){return '<div class="perm"><b>'+esc(a.name)+'</b><br><span class="sub">'+esc((a.perms||[]).join(', '))+'</span></div>';}).join('') : '<span class="sub">ไม่มี</span>')+
         '</article>';
-
       h+='<button class="amber" onclick="reverify()">↻ ยืนยันตัวตนใหม่ (KYC)</button>';
       main.innerHTML=h;
     }
-
     function reverify(){
       if(!confirm('การยืนยันใหม่จะตั้งสถานะเป็น Pending จนกว่าผู้ดูแลอนุมัติ ดำเนินการต่อ?')) return;
       api('submitKyc',{empId:P.empId}).then(function(r){
-        if(r.ok && r.data && r.data.ok){ alert('ส่งแล้ว — รออนุมัติ'); boot(); }
+        if(r.ok && r.data && r.data.ok){ lcClear(); alert('ส่งแล้ว — รออนุมัติ'); boot(); }
         else alert('ผิดพลาด: '+((r.data&&r.data.reason)||r.error||'failed'));
       });
     }
-
     boot();
   </script>
 </body>

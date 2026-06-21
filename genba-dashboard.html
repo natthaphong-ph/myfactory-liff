@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Genba & 5S Dashboard</title>
+  <title>Genba & 5S Dashboard (Supabase)</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <link rel="stylesheet" href="fonts/plex-thai.css">
@@ -50,8 +50,9 @@
     .busy{position:fixed;inset:0;background:rgba(250,250,250,.7);display:none;align-items:center;justify-content:center;z-index:50;font-weight:600;color:var(--navy)}
     .empty{color:var(--muted);font-size:14px;text-align:center;padding:30px}
     .hidden{display:none}
+    .sbtag{position:fixed;left:8px;bottom:8px;background:#0F766E;color:#fff;font-size:10px;padding:3px 8px;border-radius:6px;z-index:9;opacity:.85}
     @media(max-width:760px){.charts{grid-template-columns:1fr}}
-    @media print{header,.tabs,.filters,.btn,#tab-dash,#tab-find{display:none!important}.wrap{padding:0}}
+    @media print{header,.tabs,.filters,.btn,#tab-dash,#tab-find,.sbtag{display:none!important}.wrap{padding:0}}
   </style>
 </head>
 <body>
@@ -70,22 +71,26 @@
   </div>
   <div class="ov" id="overlay"><div class="modal" id="modal"></div></div>
   <div class="busy" id="busy">Working…</div>
+  <div class="sbtag">Supabase</div>
 
   <script>
+    /* ===== CONFIG (Supabase backend) ===== */
     var LIFF_ID='2010250488-MyQiwlFp';
-    var API_URL='https://script.google.com/macros/s/AKfycbyRJP-fDdUKFkAd5LmdBUXVM6wAb83i2leOueJ-d1Uw_czlnujTq-csD2WGGkkxcNWE/exec';
+    var FN_URL='https://jmedgllujclrhpjdrfcu.supabase.co/functions/v1/line-auth';
+    var PUBKEY='sb_publishable_0YCGBZ5wt_dTpDB-TlLpiQ_aGMctwXZ';
+    /* ===================================== */
     var idToken=null, DATA=null, TAB='dash', charts={}, BUSY=false;
     var $=function(id){return document.getElementById(id);};
     function busyOn(m){BUSY=true;$('busy').textContent=m||'Working…';$('busy').style.display='flex';}
     function busyOff(){BUSY=false;$('busy').style.display='none';}
     function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
-    function api(action,extra){return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+    function api(action,extra){return fetch(FN_URL,{method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+PUBKEY,'apikey':PUBKEY},
       body:JSON.stringify(Object.assign({action:action,idToken:idToken},extra||{}))}).then(function(r){return r.json();});}
-    function thumb(u,w){return u?u.replace('/uc?id=','/thumbnail?id=')+'&sz=w'+(w||300):'';}
-    /* localStorage SWR cache (persists across sessions); cleared on mutation + logout */
+    function thumb(u,w){return u||'';}   /* Supabase Storage URLs are already public images */
     function ssGet(key,ttlSec){try{var o=JSON.parse(localStorage.getItem(key)||'null');if(o&&(Date.now()-o.t)<ttlSec*1000)return o.d;}catch(e){}return null;}
     function ssPut(key,data){try{localStorage.setItem(key,JSON.stringify({t:Date.now(),d:data}));}catch(e){}}
-    function clearDashCache(){try{Object.keys(localStorage).forEach(function(k){if(k.indexOf('dash_')===0)localStorage.removeItem(k);});}catch(e){}}
+    function clearDashCache(){try{Object.keys(localStorage).forEach(function(k){if(k.indexOf('dashsb_')===0)localStorage.removeItem(k);});}catch(e){}}
 
     function boot(){
       liff.init({liffId:LIFF_ID}).then(function(){
@@ -95,15 +100,15 @@
       }).catch(function(e){$('main').innerHTML='<div class="empty">LINE error: '+e+'</div>';});
     }
     function reauth(){
-      clearDashCache();   // drop cached data so the next login never shows a previous user's data
+      clearDashCache();
       if(sessionStorage.getItem('reauth')){$('main').innerHTML='<div class="empty">เซสชันหมดอายุ — ปิดแล้วเปิดใหม่</div>';return;}
       sessionStorage.setItem('reauth','1'); try{liff.logout();}catch(e){} liff.login();
     }
     function reload(){
       var filter={dept:$('fdept')?$('fdept').value:'',area:$('farea')?$('farea').value:'',assigned:$('fasg')?$('fasg').value:'',status:$('fstatus')?$('fstatus').value:''};
-      var key='dash_'+JSON.stringify(filter);
-      var cached=ssGet(key,300);   // 5-min TTL
-      if(cached){ DATA=cached; $('who').textContent=cached.boot.empName+' · '+(cached.boot.perms||[]).length+' perms'; buildFilters(); render(); }   // instant from cache
+      var key='dashsb_'+JSON.stringify(filter);
+      var cached=ssGet(key,300);
+      if(cached){ DATA=cached; $('who').textContent=cached.boot.empName+' · '+(cached.boot.perms||[]).length+' perms'; buildFilters(); render(); }
       else busyOn('Loading…');
       return api('genbaDashboard',{filter:filter}).then(function(r){
         busyOff();
@@ -216,15 +221,15 @@
     function pickAfter(fid){
       var inp=document.createElement('input');inp.type='file';inp.accept='image/*';
       inp.onchange=function(){var file=inp.files[0];if(!file)return;busyOn('Uploading…');
-        resize(file).then(function(b64){return api('genbaPhoto',{findingId:fid,phase:'after',base64:b64,mimeType:'image/jpeg'});})
-          .then(function(r){busyOff();if(!r.ok){alert(r.error||r.reason);return;}openEdit(fid);});};
+        resize(file).then(function(b64){return api('genbaPhotoBatch',{findingId:fid,phase:'after',photos:[{base64:b64,mimeType:'image/jpeg'}]});})
+          .then(function(r){busyOff();if(!r.ok){alert(r.error||r.reason);return;}clearDashCache();openEdit(fid);});};
       inp.click();
     }
     function closeFind(fid){
       if(BUSY)return;busyOn('Closing…');
       api('genbaStatus',{findingId:fid,status:'Closed',note:''}).then(function(r){
         busyOff();
-        if(!r.ok){alert(r.reason==='need_after_photo'?'ต้องมีรูป After อย่างน้อย 1 รูปก่อนปิด':(r.error||r.reason));return;}
+        if(!r.ok){alert(r.reason==='need_after_photo'?'ต้องมีรูป After อย่างน้อย 1 รูปก่อนปิด':(r.reason==='not_done'?'ต้องเป็น Done ก่อนปิด':(r.error||r.reason)));return;}
         clearDashCache();closeModal();reload();
       });
     }
