@@ -83,7 +83,7 @@
     function busyOff(){BUSY=false;$('busy').style.display='none';}
     function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
     function api(a,e){return fetch(FN_URL,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+PUBKEY,'apikey':PUBKEY},body:JSON.stringify(Object.assign({action:a,idToken:idToken},e||{}))}).then(function(r){return r.json();});}
-    function reauth(){lcClear();if(sessionStorage.getItem('reauth')){$('main').innerHTML='<div class="empty">เซสชันหมดอายุ — ปิดแล้วเปิดใหม่</div>';return;}sessionStorage.setItem('reauth','1');try{liff.logout();}catch(e){}liff.login();}
+    function reauth(){lcClear();if(sessionStorage.getItem('reauth')){$('main').innerHTML='<div class="empty">Session expired — close and reopen</div>';return;}sessionStorage.setItem('reauth','1');try{liff.logout();}catch(e){}liff.login();}
 
     var CONFIG_SECTIONS=[
       {key:'dept',title:'Departments',data:'depts',idField:'DeptID',cols:[
@@ -140,11 +140,11 @@
     function refreshBoot(cb){api('cpBoot').then(function(r){if(r&&r.ok){BOOT=r;lcPut('cpboot',r);}if(cb)cb();});}
     function buildNav(){
       var h='';
-      if(BOOT.canApprove){h+='<div class="grp">Approve</div><div class="grpd">อนุมัติสิทธิผู้ใช้งาน</div>'+navItem('kyc','ti','KYC approval');}
-      if(BOOT.canDashboard){h+='<div class="grp">Dashboard & Report</div><div class="grpd">รายงาน & แดชบอร์ด</div>'+navItem('report','ti','System reports');}
-      if(BOOT.canConfig){h+='<div class="grp">Configuration</div><div class="grpd">ตั้งค่าระบบ (เรียงตามลำดับ)</div>'+
+      if(BOOT.canApprove){h+='<div class="grp">Approve</div><div class="grpd">Approve user access</div>'+navItem('kyc','ti','KYC approval');}
+      if(BOOT.canDashboard){h+='<div class="grp">Dashboard & Report</div><div class="grpd">Reports & dashboards</div>'+navItem('report','ti','System reports');}
+      if(BOOT.canConfig){h+='<div class="grp">Configuration</div><div class="grpd">System configuration (in order)</div>'+
         CONFIG_SECTIONS.map(function(s,i){return navItem(s.key,(i+1),s.title);}).join('');}
-      if(BOOT.canGrant){h+='<div class="grp">Access control</div><div class="grpd">กำหนดสิทธิผู้ใช้งาน (เฉพาะผู้ดูแลระบบ)</div>'+
+      if(BOOT.canGrant){h+='<div class="grp">Access control</div><div class="grpd">Manage user permissions (admins only)</div>'+
         ACCESS_SECTIONS.map(function(s){return navItem(s.key,'ti',s.title);}).join('');}
       $('nav').innerHTML=h;
     }
@@ -161,7 +161,7 @@
     /* ---- Approve ---- */
     function renderKyc(){
       var rows=BOOT.kyc||[], pend=rows.filter(function(r){return r.KycStatus==='pending';});
-      $('main').innerHTML='<h2>KYC approval</h2><div class="sub">อนุมัติ/เพิกถอนสิทธิผู้ใช้งาน</div>'+
+      $('main').innerHTML='<h2>KYC approval</h2><div class="sub">Approve / revoke user access</div>'+
         '<div class="card"><h3>Pending ('+pend.length+')</h3>'+kycTable(pend)+'</div>'+
         '<div class="card"><h3>All</h3>'+kycTable(rows)+'</div>';
     }
@@ -173,17 +173,17 @@
           (r.KycStatus!=='active'&&r.EmpStatus!=='inactive'?'<button class="btn green sm" onclick="kyc(\'approve\',\''+esc(r.KycID)+'\')">Approve</button> ':'')+
           (r.KycStatus!=='revoked'?'<button class="btn red sm" onclick="kyc(\'revoke\',\''+esc(r.KycID)+'\')">Revoke</button>':'')+'</td></tr>';}).join('')+'</tbody></table>';}
     function kyc(act,id){if(BUSY)return;
-      if(act==='revoke'&&!confirm('เพิกถอนสิทธิ KYC ของผู้ใช้นี้?'))return;
+      if(act==='revoke'&&!confirm('Revoke this user\'s KYC access?'))return;
       busyOn();
       api(act==='approve'?'cpKycApprove':'cpKycRevoke',{kycId:id}).then(function(r){busyOff();if(!r.ok){alert(r.error||r.reason);return;}
         api('cpBoot').then(function(b){if(b.ok){BOOT=b;lcPut('cpboot',b);renderKyc();}});});}
 
     /* ---- Dashboard & Report (links) ---- */
     function renderReport(){
-      $('main').innerHTML='<h2>System reports</h2><div class="sub">เปิดรายงาน/แดชบอร์ดในแท็บใหม่</div>'+
-        link(DASH_URL,'Genba & 5S dashboard','KPI · กราฟ · findings · พิมพ์รายงาน')+
-        '<div class="linkrow soon"><div class="t"><b>TPM TAG dashboard</b><br><span>เร็ว ๆ นี้</span></div></div>'+
-        '<div class="linkrow soon"><div class="t"><b>Check-in dashboard</b><br><span>เร็ว ๆ นี้</span></div></div>';
+      $('main').innerHTML='<h2>System reports</h2><div class="sub">Open reports / dashboards in a new tab</div>'+
+        link(DASH_URL,'Genba & 5S dashboard','KPIs · charts · findings · printable report')+
+        '<div class="linkrow soon"><div class="t"><b>TPM TAG dashboard</b><br><span>Coming soon</span></div></div>'+
+        '<div class="linkrow soon"><div class="t"><b>Check-in dashboard</b><br><span>Coming soon</span></div></div>';
     }
     function link(url,t,d){return '<div class="linkrow" style="cursor:pointer" onclick="location.href=\''+esc(url)+'\'"><div class="t"><b>'+esc(t)+'</b><br><span>'+esc(d)+'</span></div>›</div>';}
 
@@ -245,8 +245,8 @@
           if(s.move){
             var selId='mv_'+secKey+'_'+ri;
             var optsG=(M['groups']||[]).map(function(g){return '<option value="'+esc(g.GroupID)+'"'+(g.GroupID===r['GroupID']?' disabled':'')+'>'+esc(g.GroupName)+'</option>';}).join('');
-            mv='<select id="'+selId+'" style="width:auto;display:inline-block;margin-right:6px"><option value="">ย้ายไป…</option>'+optsG+'</select>'+
-               '<button class="btn sm" onclick="moveMember(\''+esc(r['EmpID'])+'\',\''+esc(r['GroupID'])+'\',\''+selId+'\')">ย้าย</button> ';
+            mv='<select id="'+selId+'" style="width:auto;display:inline-block;margin-right:6px"><option value="">Move to…</option>'+optsG+'</select>'+
+               '<button class="btn sm" onclick="moveMember(\''+esc(r['EmpID'])+'\',\''+esc(r['GroupID'])+'\',\''+selId+'\')">Move</button> ';
           }
           tail='<td style="white-space:nowrap">'+mv+'<button class="btn sm rv" onclick="revokeRow(\''+secKey+'\',\''+enc+'\')">Revoke</button></td>';
         } else {
@@ -256,14 +256,14 @@
       }).join('');
       var inputs=s.cols.map(function(c){return fieldHtml('add_'+secKey+'_'+c.f,c,'',true);}).join('');
       var addrow=s.noadd?'':'<div class="addrow">'+inputs+'<button class="btn" onclick="addRow(\''+secKey+'\')">+ Add</button></div>';
-      var hint=s.addonly?'เพิ่มได้ · แสดงเป็นชื่อ (เก็บเป็น ID)':'ID ล็อก 🔒 · แก้ description/dropdown ได้ · กด Save';
+      var hint=s.addonly?'Add new · shows names (stored as IDs)':'ID locked 🔒 · edit fields then Save';
       $('main').innerHTML='<h2>'+esc(s.title)+'</h2><div class="sub">'+hint+'</div>'+
         '<div class="card"><table><thead>'+head+'</thead><tbody>'+(body||'')+'</tbody></table>'+addrow+'</div>'+
         ((secKey==='member'||secKey==='userrole')?restoreCard(secKey):'');
     }
-    /* revoked rows of ACTIVE employees — surfaced so admin can restore (member=คืนสิทธิ์ / userrole=Approve) */
+    /* revoked rows of ACTIVE employees — surfaced so admin can restore */
     var RESTORE={
-      member:{src:'revokedMembers',title:'ถูกถอนอยู่ — กดคืนสิทธิ์ (เฉพาะพนักงาน Active)',btn:'คืนสิทธิ์',confirm:'คืนสิทธิ์สมาชิกกลุ่มนี้?',noemp:'พนักงานนี้ไม่ Active'},
+      member:{src:'revokedMembers',title:'Revoked — click Restore (active employees only)',btn:'Restore',confirm:'Restore this group membership?',noemp:'Employee is not Active'},
       userrole:{src:'revokedUserRoles',title:'Revoked roles — click Approve to restore (active employees only)',btn:'Approve',confirm:'Approve and restore this role for the employee?',noemp:'Employee is not Active'}
     };
     function restoreCard(secKey){
@@ -302,14 +302,14 @@
       var row={}; s.cols.forEach(function(c){row[c.f]=$('add_'+secKey+'_'+c.f).value;});
       var firstKey=s.cols[0].f;
       if(!row[firstKey]){alert('First field required');return;}
-      if((secKey==='userrole'||secKey==='roleperm')&&!confirm('ยืนยันการให้สิทธิ์ (grant) นี้?'))return;
+      if((secKey==='userrole'||secKey==='roleperm')&&!confirm('Confirm this grant?'))return;
       busyOn('Adding…');
-      api('cpAddRow',{table:secKey,row:row}).then(function(r){busyOff();if(!r.ok){alert(r.reason==='emp_inactive'?'พนักงานนี้ไม่ Active — เพิ่ม/คืนสิทธิ์ไม่ได้ (ต้องตั้ง Active ในหน้า Employees ก่อน)':(r.error||r.reason));return;}M=null;loadConfig(secKey);});
+      api('cpAddRow',{table:secKey,row:row}).then(function(r){busyOff();if(!r.ok){alert(r.reason==='emp_inactive'?'Employee is not Active — cannot add/restore (set Active on the Employees page first)':(r.error||r.reason));return;}M=null;loadConfig(secKey);});
     }
     function revokeRow(secKey,enc){
       if(BUSY)return;
       var match=JSON.parse(decodeURIComponent(enc));
-      if(!confirm('ถอนรายการนี้? (เก็บประวัติไว้ — สามารถเพิ่มกลับได้ภายหลัง)'))return;
+      if(!confirm('Revoke this item? (history kept — can be re-added later)'))return;
       busyOn('Revoking…');
       api('cpRevoke',{table:secKey,match:match}).then(function(r){busyOff();
         if(!r.ok){alert(r.error||r.reason);return;}
@@ -319,9 +319,9 @@
     function moveMember(empId,fromGroup,selId){
       if(BUSY)return;
       var toGroup=$(selId)?$(selId).value:'';
-      if(!toGroup){alert('เลือกกลุ่มปลายทางก่อน');return;}
-      if(toGroup===fromGroup){alert('กลุ่มปลายทางต้องต่างจากกลุ่มเดิม');return;}
-      if(!confirm('ย้าย '+empId+' ไปกลุ่มใหม่?'))return;
+      if(!toGroup){alert('Select a target group first');return;}
+      if(toGroup===fromGroup){alert('Target group must differ from the current one');return;}
+      if(!confirm('Move '+empId+' to the new group?'))return;
       busyOn('Moving…');
       api('cpRevoke',{table:'member',match:{GroupID:fromGroup,EmpID:empId}}).then(function(r1){
         if(!r1||!r1.ok){busyOff();alert((r1&&(r1.error||r1.reason))||'revoke failed');return null;}
