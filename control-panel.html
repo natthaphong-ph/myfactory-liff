@@ -42,6 +42,9 @@
     /* inputs */
     input,select{padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;width:100%;background:#fff;color:var(--charcoal);font-family:inherit;transition:border-color .12s,box-shadow .12s}
     input:focus,select:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px rgba(13,148,136,.15)}
+    .cardh{font-size:13px;font-weight:700;color:var(--navy)}
+    .listh{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+    .filterbox{width:240px;max-width:60%}
     /* buttons */
     .btn{border:none;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer;color:#fff;background:var(--teal);font-family:inherit;transition:background .12s,transform .05s,box-shadow .12s}
     .btn:hover{background:var(--teal-d);box-shadow:var(--shadow)} .btn:active{transform:translateY(1px)}
@@ -170,7 +173,8 @@
       var rows=BOOT.kyc||[], pend=rows.filter(function(r){return r.KycStatus==='pending';});
       $('main').innerHTML='<h2>KYC approval</h2><div class="sub">Approve / revoke user access</div>'+
         '<div class="card"><h3>Pending ('+pend.length+')</h3>'+kycTable(pend)+'</div>'+
-        '<div class="card"><h3>All</h3>'+kycTable(rows)+'</div>';
+        '<div class="card"><div class="listh"><div class="cardh">All ('+rows.length+')</div>'+
+        '<input class="filterbox" placeholder="🔎 Filter…" oninput="filterTable(this)"></div>'+kycTable(rows)+'</div>';
     }
     function badge(s){var c=s==='active'?'b-active':(s==='revoked'?'b-revoked':'b-pending');return '<span class="badge '+c+'">'+esc(s)+'</span>';}
     function empBadge(s){if(!s)return '<span class="badge">—</span>';return '<span class="badge '+(s==='active'?'b-active':'b-revoked')+'">'+esc(s)+'</span>';}
@@ -262,11 +266,24 @@
         return '<tr>'+cells+tail+'</tr>';
       }).join('');
       var inputs=s.cols.map(function(c){return fieldHtml('add_'+secKey+'_'+c.f,c,'',true);}).join('');
-      var addrow=s.noadd?'':'<div class="addrow">'+inputs+'<button class="btn" onclick="addRow(\''+secKey+'\')">+ Add</button></div>';
-      var hint=s.addonly?'Add new · shows names (stored as IDs)':'ID locked 🔒 · edit fields then Save';
+      var addcard=s.noadd?'':'<div class="card"><div class="cardh">Add new</div><div class="addrow">'+inputs+'<button class="btn" onclick="addRow(\''+secKey+'\')">+ Add</button></div></div>';
+      var hint=s.addonly?'Add new above · list below (filter &amp; sort)':'ID locked 🔒 · edit fields then Save';
+      var listcard='<div class="card"><div class="listh"><div class="cardh">List ('+rows.length+')</div>'+
+        '<input class="filterbox" placeholder="🔎 Filter…" oninput="filterTable(this)"></div>'+
+        '<table><thead>'+head+'</thead><tbody>'+(body||'')+'</tbody></table></div>';
       $('main').innerHTML='<h2>'+esc(s.title)+'</h2><div class="sub">'+hint+'</div>'+
-        '<div class="card"><table><thead>'+head+'</thead><tbody>'+(body||'')+'</tbody></table>'+addrow+'</div>'+
+        addcard+listcard+
         ((secKey==='member'||secKey==='userrole')?restoreCard(secKey):'');
+    }
+    /* live filter: hide rows whose combined cell text doesn't contain the query */
+    function filterTable(inp){
+      var q=inp.value.trim().toLowerCase();
+      var card=inp.closest('.card'); if(!card)return; var table=card.querySelector('table');
+      if(!table||!table.tBodies[0])return;
+      Array.prototype.forEach.call(table.tBodies[0].rows,function(r){
+        var txt=Array.prototype.map.call(r.cells,function(td){return cellVal(td);}).join(' ').toLowerCase();
+        r.style.display=(!q||txt.indexOf(q)>-1)?'':'none';
+      });
     }
     /* revoked rows of ACTIVE employees — surfaced so admin can restore */
     var RESTORE={
