@@ -42,6 +42,9 @@
     /* inputs */
     input,select{padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;width:100%;background:#fff;color:var(--charcoal);font-family:inherit;transition:border-color .12s,box-shadow .12s}
     input:focus,select:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px rgba(13,148,136,.15)}
+    .note{background:var(--infobg);border:1px solid #CFF3EC;color:var(--navy);border-radius:10px;padding:11px 14px;font-size:12.5px;line-height:1.9;margin-bottom:14px}
+    .note code{background:#fff;border:1px solid var(--border);border-radius:5px;padding:1px 6px;font-size:12px;color:var(--teal);font-family:ui-monospace,Menlo,monospace}
+    .note a{color:var(--teal);font-weight:600;text-decoration:none}.note a:hover{text-decoration:underline}
     .cardh{font-size:13px;font-weight:700;color:var(--navy)}
     .listh{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap}
     .filterbox{width:240px;max-width:60%}
@@ -96,11 +99,15 @@
         {f:'EmpID',id:true},{f:'FullName'},{f:'Dept',src:'depts',val:'DeptID',label:'DeptName'},{f:'Position'},{f:'Status',opts:['active','inactive']}]},
       {key:'group',title:'Groups',data:'groups',idField:'GroupID',cols:[
         {f:'GroupID',id:true},{f:'GroupName'},{f:'OwnerDept',src:'depts',val:'DeptID',label:'DeptName'}]},
-      {key:'app',title:'Apps',data:'apps',idField:'AppID',cols:[
+      {key:'app',title:'Apps',data:'apps',idField:'AppID',
+        note:'<b>Icon</b> = a Tabler icon name (e.g. <code>settings</code>, <code>tag</code>, <code>clock-check</code>) or an emoji 📋. Browse &amp; copy the exact name at <a href="https://tabler.io/icons" target="_blank" rel="noopener">tabler.io/icons ↗</a> &nbsp;|&nbsp; <b>AppURL</b> = page filename (e.g. <code>checkin.html</code>) &nbsp;|&nbsp; <b>SortOrder</b> = tile order on Home (lower = first) &nbsp;|&nbsp; <b>Status</b> = on shows the app (still needs a Role → Permission grant to appear).',
+        cols:[
         {f:'AppID',id:true},{f:'AppName'},{f:'AppURL'},{f:'Icon'},{f:'SortOrder'},{f:'Status',opts:['on','off']}]},
       {key:'role',title:'Roles',data:'roles',idField:'RoleID',cols:[
         {f:'RoleID',id:true},{f:'RoleName'},{f:'Description'}]},
-      {key:'roleperm',title:'Role → Permission',data:'rolePerms',idField:null,addonly:true,cols:[
+      {key:'roleperm',title:'Role → Permission',data:'rolePerms',idField:null,addonly:true,
+        note:'<b>Permission scope</b> &nbsp; <code>view</code> read data · <code>create</code> add records (e.g. a finding) · <code>close</code> verify &amp; close (Done→Closed) · <code>approve</code> approve requests (KYC / work) · <code>dashboard</code> open dashboards &amp; reports · <code>cross-dept</code> see &amp; act across departments · <code>config</code> edit system master data · <code>grant</code> grant/revoke roles &amp; permissions. &nbsp;<i>Each permission applies only within the app it is granted for.</i>',
+        cols:[
         {f:'RoleID',src:'roles',val:'RoleID',label:'RoleName'},
         {f:'AppID',src:'apps',val:'AppID',label:'AppName'},
         {f:'PermID',src:'permissions',val:'PermID',label:'PermName'}]}
@@ -271,7 +278,8 @@
       var listcard='<div class="card"><div class="listh"><div class="cardh">List ('+rows.length+')</div>'+
         '<input class="filterbox" placeholder="🔎 Filter…" oninput="filterTable(this)"></div>'+
         '<table><thead>'+head+'</thead><tbody>'+(body||'')+'</tbody></table></div>';
-      $('main').innerHTML='<h2>'+esc(s.title)+'</h2><div class="sub">'+hint+'</div>'+
+      var note=s.note?'<div class="note">'+s.note+'</div>':'';
+      $('main').innerHTML='<h2>'+esc(s.title)+'</h2><div class="sub">'+hint+'</div>'+note+
         addcard+listcard+
         ((secKey==='member'||secKey==='userrole')?restoreCard(secKey):'');
     }
