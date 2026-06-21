@@ -48,6 +48,9 @@
     .cardh{font-size:13px;font-weight:700;color:var(--navy)}
     .listh{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap}
     .filterbox{width:240px;max-width:60%}
+    .tablewrap{overflow:auto;max-height:calc(100vh - 320px);min-height:140px;-webkit-overflow-scrolling:touch}
+    .tablewrap table{margin:0}
+    .tablewrap thead th{position:sticky;top:0;background:#fff;z-index:1;box-shadow:inset 0 -1px 0 var(--border)}
     /* buttons */
     .btn{border:none;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer;color:#fff;background:var(--teal);font-family:inherit;transition:background .12s,transform .05s,box-shadow .12s}
     .btn:hover{background:var(--teal-d);box-shadow:var(--shadow)} .btn:active{transform:translateY(1px)}
@@ -66,7 +69,18 @@
     .soon{border-style:dashed;color:var(--muted);opacity:.7}
     .busy{position:fixed;inset:0;background:rgba(248,250,252,.7);backdrop-filter:blur(2px);display:none;align-items:center;justify-content:center;z-index:50;font-weight:600;color:var(--navy)}
     .empty{color:var(--muted);font-size:13px;text-align:center;padding:30px}
-    @media(max-width:760px){.shell{flex-direction:column}nav{width:auto;border-right:none;border-bottom:1px solid var(--border)}main{padding:16px}}
+    @media(max-width:760px){
+      .shell{flex-direction:column}
+      nav{width:auto;border-right:none;border-bottom:1px solid var(--border)}
+      main{padding:14px}
+      .tablewrap{max-height:58vh}
+      .listh{flex-direction:column;align-items:stretch}
+      .filterbox{width:100%;max-width:100%}
+      .who{display:none}
+      table{font-size:12.5px}
+      .addrow{grid-template-columns:1fr 1fr}
+    }
+    @media(max-width:460px){.addrow{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
@@ -181,7 +195,8 @@
       $('main').innerHTML='<h2>KYC approval</h2><div class="sub">Approve / revoke user access</div>'+
         '<div class="card"><h3>Pending ('+pend.length+')</h3>'+kycTable(pend)+'</div>'+
         '<div class="card"><div class="listh"><div class="cardh">All ('+rows.length+')</div>'+
-        '<input class="filterbox" placeholder="🔎 Filter…" oninput="filterTable(this)"></div>'+kycTable(rows)+'</div>';
+        '<input class="filterbox" placeholder="🔎 Filter…" oninput="filterTable(this)"></div>'+
+        '<div class="tablewrap">'+kycTable(rows)+'</div></div>';
     }
     function badge(s){var c=s==='active'?'b-active':(s==='revoked'?'b-revoked':'b-pending');return '<span class="badge '+c+'">'+esc(s)+'</span>';}
     function empBadge(s){if(!s)return '<span class="badge">—</span>';return '<span class="badge '+(s==='active'?'b-active':'b-revoked')+'">'+esc(s)+'</span>';}
@@ -275,9 +290,9 @@
       var inputs=s.cols.map(function(c){return fieldHtml('add_'+secKey+'_'+c.f,c,'',true);}).join('');
       var addcard=s.noadd?'':'<div class="card"><div class="cardh">Add new</div><div class="addrow">'+inputs+'<button class="btn" onclick="addRow(\''+secKey+'\')">+ Add</button></div></div>';
       var hint=s.addonly?'Add new above · list below (filter &amp; sort)':'ID locked 🔒 · edit fields then Save';
-      var listcard='<div class="card"><div class="listh"><div class="cardh">List ('+rows.length+')</div>'+
+      var listcard='<div class="card listcard"><div class="listh"><div class="cardh">List ('+rows.length+')</div>'+
         '<input class="filterbox" placeholder="🔎 Filter…" oninput="filterTable(this)"></div>'+
-        '<table><thead>'+head+'</thead><tbody>'+(body||'')+'</tbody></table></div>';
+        '<div class="tablewrap"><table><thead>'+head+'</thead><tbody>'+(body||'')+'</tbody></table></div></div>';
       var note=s.note?'<div class="note">'+s.note+'</div>':'';
       $('main').innerHTML='<h2>'+esc(s.title)+'</h2><div class="sub">'+hint+'</div>'+note+
         addcard+listcard+
