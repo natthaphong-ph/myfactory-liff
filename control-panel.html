@@ -188,7 +188,7 @@
     function link(url,t,d){return '<div class="linkrow" style="cursor:pointer" onclick="location.href=\''+esc(url)+'\'"><div class="t"><b>'+esc(t)+'</b><br><span>'+esc(d)+'</span></div>›</div>';}
 
     /* ---- Configuration ---- */
-    function mergeAccess(a){if(a&&a.ok){M.roles=a.roles;M.permissions=a.permissions;M.apps=a.apps;M.userRoles=a.userRoles;M.rolePerms=a.rolePerms;if(!M.employees)M.employees=a.employees;}}
+    function mergeAccess(a){if(a&&a.ok){M.roles=a.roles;M.permissions=a.permissions;M.apps=a.apps;M.userRoles=a.userRoles;M.rolePerms=a.rolePerms;M.revokedUserRoles=a.revokedUserRoles;if(!M.employees)M.employees=a.employees;}}
     function loadConfig(secKey){
       if(M){renderConfig(secKey);return;}
       busyOn('Loading…');
@@ -258,7 +258,38 @@
       var addrow=s.noadd?'':'<div class="addrow">'+inputs+'<button class="btn" onclick="addRow(\''+secKey+'\')">+ Add</button></div>';
       var hint=s.addonly?'เพิ่มได้ · แสดงเป็นชื่อ (เก็บเป็น ID)':'ID ล็อก 🔒 · แก้ description/dropdown ได้ · กด Save';
       $('main').innerHTML='<h2>'+esc(s.title)+'</h2><div class="sub">'+hint+'</div>'+
-        '<div class="card"><table><thead>'+head+'</thead><tbody>'+(body||'')+'</tbody></table>'+addrow+'</div>';
+        '<div class="card"><table><thead>'+head+'</thead><tbody>'+(body||'')+'</tbody></table>'+addrow+'</div>'+
+        ((secKey==='member'||secKey==='userrole')?restoreCard(secKey):'');
+    }
+    /* revoked rows of ACTIVE employees — surfaced so admin can restore (member=คืนสิทธิ์ / userrole=Approve) */
+    var RESTORE={
+      member:{src:'revokedMembers',title:'ถูกถอนอยู่ — กดคืนสิทธิ์ (เฉพาะพนักงาน Active)',btn:'คืนสิทธิ์',confirm:'คืนสิทธิ์สมาชิกกลุ่มนี้?',noemp:'พนักงานนี้ไม่ Active'},
+      userrole:{src:'revokedUserRoles',title:'Revoked roles — click Approve to restore (active employees only)',btn:'Approve',confirm:'Approve and restore this role for the employee?',noemp:'Employee is not Active'}
+    };
+    function restoreCard(secKey){
+      var cfg=RESTORE[secKey]; if(!cfg)return '';
+      var rev=M[cfg.src]||[]; if(!rev.length)return '';
+      var s=sec_(secKey);
+      var act={}; (M.employees||[]).forEach(function(e){if(e.Status==='active')act[e.EmpID]=1;});
+      var rows=rev.filter(function(r){return act[r.EmpID];});   /* only active employees can be restored */
+      if(!rows.length)return '';
+      var headHtml=s.cols.map(function(c){return '<th>'+c.f+'</th>';}).join('')+'<th></th>';
+      var bodyR=rows.map(function(r){
+        var cells=s.cols.map(function(c){return '<td>'+esc(resolveCell(secKey,c.f,r[c.f]))+'</td>';}).join('');
+        var args=s.cols.map(function(c){return '\''+esc(r[c.f])+'\'';}).join(',');
+        return '<tr>'+cells+'<td><button class="btn sm green" onclick="restoreRow(\''+secKey+'\','+args+')">'+cfg.btn+'</button></td></tr>';
+      }).join('');
+      return '<div class="card"><h3>'+cfg.title+'</h3><table><thead><tr>'+headHtml+'</tr></thead><tbody>'+bodyR+'</tbody></table></div>';
+    }
+    function restoreRow(secKey){
+      if(BUSY)return;var cfg=RESTORE[secKey];var s=sec_(secKey);
+      var vals=Array.prototype.slice.call(arguments,1);
+      var row={}; s.cols.forEach(function(c,i){row[c.f]=vals[i];});
+      if(!confirm(cfg.confirm))return;
+      busyOn('Restoring…');
+      api('cpAddRow',{table:secKey,row:row}).then(function(r){busyOff();
+        if(!r.ok){alert(r.reason==='emp_inactive'?cfg.noemp:(r.error||r.reason));return;}
+        M=null;loadConfig(secKey);});
     }
     function saveRow(secKey,idv){
       if(BUSY)return;var s=sec_(secKey);var patch={};
