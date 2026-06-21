@@ -147,12 +147,12 @@
       var h='';
       if(BOOT.canApprove){h+='<div class="grp">Approve</div><div class="grpd">Approve user access</div>'+navItem('kyc','ti','KYC approval');}
       if(BOOT.canDashboard){h+='<div class="grp">Dashboard & Report</div><div class="grpd">Reports & dashboards</div>'+navItem('report','ti','System reports');}
-      if(BOOT.canConfig){h+='<div class="grp">Configuration</div><div class="grpd">System configuration (in order)</div>'+
-        CONFIG_SECTIONS.map(function(s,i){return navItem(s.key,(i+1),s.title);}).join('');}
-      if(BOOT.canConfig){h+='<div class="grp">Genba configuration</div><div class="grpd">Genba &amp; 5S app data</div>'+
-        GENBA_SECTIONS.map(function(s,i){return navItem(s.key,(i+1),s.title);}).join('');}
+      if(BOOT.canConfig){h+='<div class="grp">Configuration</div><div class="grpd">System configuration</div>'+
+        CONFIG_SECTIONS.map(function(s){return navItem(s.key,'ti',s.title);}).join('');}
       if(BOOT.canGrant){h+='<div class="grp">Access control</div><div class="grpd">Manage user permissions (admins only)</div>'+
         ACCESS_SECTIONS.map(function(s){return navItem(s.key,'ti',s.title);}).join('');}
+      if(BOOT.canConfig){h+='<div class="grp">Genba configuration</div><div class="grpd">Genba &amp; 5S app data</div>'+
+        GENBA_SECTIONS.map(function(s){return navItem(s.key,'ti',s.title);}).join('');}
       $('nav').innerHTML=h;
     }
     function navItem(key,n,label){return '<div class="nav" data-k="'+key+'" onclick="show(\''+key+'\')"><span class="n">'+(n==='ti'?'·':n)+'</span>'+esc(label)+'</div>';}
@@ -335,12 +335,10 @@
       if(toVal===fromVal){alert('Target must differ from the current one');return;}
       if(!confirm('Move '+fixedVal+'?'))return;
       busyOn('Moving…');
-      var oldMatch={}; oldMatch[mc.fixed]=fixedVal; oldMatch[mc.change]=fromVal;
-      var newRow={}; newRow[mc.fixed]=fixedVal; newRow[mc.change]=toVal;
-      api('cpRevoke',{table:secKey,match:oldMatch}).then(function(r1){
-        if(!r1||!r1.ok){busyOff();alert((r1&&(r1.error||r1.reason))||'revoke failed');return null;}
-        return api('cpAddRow',{table:secKey,row:newRow});
-      }).then(function(r2){if(!r2)return;busyOff();if(!r2.ok){alert(r2.reason==='emp_inactive'?'Employee is not Active':(r2.error||r2.reason));return;}M=null;loadConfig(secKey);});
+      /* clean reassign in one call: removes the old link, sets the target active (no revoked leftover) */
+      api('cpMove',{table:secKey,fixedField:mc.fixed,changeField:mc.change,fixedVal:fixedVal,fromVal:fromVal,toVal:toVal}).then(function(r){busyOff();
+        if(!r.ok){alert(r.reason==='emp_inactive'?'Employee is not Active':(r.error||r.reason));return;}
+        M=null;loadConfig(secKey);});
     }
     /* ---- sortable table headers: click any column to sort, click again to reverse ---- */
     function cellVal(td){if(!td)return '';var inp=td.querySelector('input,select');if(inp){if(inp.tagName==='SELECT'){var o=inp.options[inp.selectedIndex];return o?o.text:inp.value;}return inp.value;}return (td.innerText||td.textContent||'').trim();}
