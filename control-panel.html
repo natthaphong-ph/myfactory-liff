@@ -27,7 +27,8 @@
     h2{font-size:17px;margin:0 0 2px;color:var(--navy);font-weight:600}.sub{font-size:12px;color:var(--muted);margin-bottom:14px}
     table{width:100%;border-collapse:collapse;font-size:13px}
     th,td{text-align:left;padding:7px 6px;border-bottom:1px solid var(--border)}
-    th{color:var(--muted);font-size:11px;text-transform:uppercase}
+    th{color:var(--muted);font-size:11px;text-transform:uppercase;cursor:pointer;user-select:none;white-space:nowrap}
+    th:hover{color:var(--navy)} th .so{opacity:.6;font-size:10px}
     input,select{padding:8px;border:1px solid var(--border);border-radius:7px;font-size:13px;width:100%}
     .btn{border:none;border-radius:7px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;color:#fff;background:var(--teal)}
     .btn.sm{padding:5px 10px;font-size:12px}.btn.green{background:var(--green)}.btn.red{background:var(--red)}.btn.gray{background:var(--muted)}
@@ -151,7 +152,9 @@
         rows.map(function(r){return '<tr><td>'+esc(r.EmpID)+'</td><td>'+esc(r.DisplayName)+'</td><td>'+badge(r.KycStatus)+'</td><td>'+empBadge(r.EmpStatus)+(r.EmpStatus==='inactive'?' <span style="font-size:11px;color:var(--red);font-weight:600">⛔ blocked</span>':'')+'</td><td>'+
           (r.KycStatus!=='active'&&r.EmpStatus!=='inactive'?'<button class="btn green sm" onclick="kyc(\'approve\',\''+esc(r.KycID)+'\')">Approve</button> ':'')+
           (r.KycStatus!=='revoked'?'<button class="btn red sm" onclick="kyc(\'revoke\',\''+esc(r.KycID)+'\')">Revoke</button>':'')+'</td></tr>';}).join('')+'</tbody></table>';}
-    function kyc(act,id){if(BUSY)return;busyOn();
+    function kyc(act,id){if(BUSY)return;
+      if(act==='revoke'&&!confirm('เพิกถอนสิทธิ KYC ของผู้ใช้นี้?'))return;
+      busyOn();
       api(act==='approve'?'cpKycApprove':'cpKycRevoke',{kycId:id}).then(function(r){busyOff();if(!r.ok){alert(r.error||r.reason);return;}
         api('cpBoot').then(function(b){if(b.ok){BOOT=b;lcPut('cpboot',b);renderKyc();}});});}
 
@@ -240,6 +243,7 @@
       var row={}; s.cols.forEach(function(c){row[c.f]=$('add_'+secKey+'_'+c.f).value;});
       var firstKey=s.cols[0].f;
       if(!row[firstKey]){alert('First field required');return;}
+      if((secKey==='userrole'||secKey==='roleperm')&&!confirm('ยืนยันการให้สิทธิ์ (grant) นี้?'))return;
       busyOn('Adding…');
       api('cpAddRow',{table:secKey,row:row}).then(function(r){busyOff();if(!r.ok){alert(r.error||r.reason);return;}M=null;loadConfig(secKey);});
     }
@@ -252,6 +256,23 @@
         if(!r.ok){alert(r.error||r.reason);return;}
         M=null;loadConfig(secKey);});
     }
+    /* ---- sortable table headers: click any column to sort, click again to reverse ---- */
+    function cellVal(td){if(!td)return '';var inp=td.querySelector('input,select');if(inp){if(inp.tagName==='SELECT'){var o=inp.options[inp.selectedIndex];return o?o.text:inp.value;}return inp.value;}return (td.innerText||td.textContent||'').trim();}
+    document.addEventListener('click',function(e){
+      var th=e.target.closest?e.target.closest('th'):null; if(!th)return;
+      var table=th.closest('table'); if(!table)return;
+      var hr=th.parentNode, ths=Array.prototype.slice.call(hr.children), idx=ths.indexOf(th);
+      var tb=table.tBodies[0]; if(!tb||idx<0)return;
+      var rows=Array.prototype.slice.call(tb.rows); if(rows.length<2)return;
+      var asc=!(table._sc===idx&&table._sd==='asc'); table._sc=idx; table._sd=asc?'asc':'desc';
+      rows.sort(function(a,b){var x=cellVal(a.cells[idx]),y=cellVal(b.cells[idx]);
+        var nx=parseFloat(x.replace(/[^0-9.\-]/g,'')),ny=parseFloat(y.replace(/[^0-9.\-]/g,''));
+        var num=x!==''&&y!==''&&!isNaN(nx)&&!isNaN(ny); var r=num?(nx-ny):x.localeCompare(y,'th');
+        return asc?r:-r;});
+      rows.forEach(function(r){tb.appendChild(r);});
+      ths.forEach(function(h){var s=h.querySelector('.so');if(s)s.remove();});
+      var ind=document.createElement('span');ind.className='so';ind.textContent=asc?' ▲':' ▼';th.appendChild(ind);
+    });
     boot();
   </script>
 </body>
