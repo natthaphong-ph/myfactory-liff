@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net">
   <link rel="stylesheet" href="fonts/plex-thai.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3/dist/tabler-icons.min.css">
   <style>
     :root{--navy:#0F172A;--teal:#0D9488;--amber:#D97706;--snow:#FAFAFA;--charcoal:#1E293B;
       --surface:#F1F5F9;--border:#E5E7EB;--red:#EF4444;--green:#10B981;--muted:#64748B;
@@ -103,11 +104,13 @@
 
   /* ===================== HOME (launcher — every app is a separate page) ===================== */
   var APP_ICON={APP_GENBA:'▤',APP_KYC:'▣',APP_ADMIN:'⚙',APP_TPMTAG:'⬡',APP_CHECKIN:'◷',APP_MACHK:'▦'};
+  /* icon = a Tabler icon name (e.g. "settings","tag") -> SVG glyph; or an emoji -> shown as-is; else fallback */
+  function iconHtml(v,appId){ if(v&&/^[a-z][a-z0-9-]*$/.test(v))return '<i class="ti ti-'+v+'"></i>'; if(v)return esc(v); return APP_ICON[appId]||'▣'; }
   function renderHome(){
     titleEl.textContent='My Factory';
     var apps=ACCESS.apps||[];
     var tiles=apps.map(function(a){
-      var ic=APP_ICON[a.appId]||a.icon||'▣';
+      var ic=iconHtml(a.icon,a.appId);
       var ready=a.url && a.url!=='set-after-deploy';
       var cls='tile'+(ready?'':' soon');
       return '<div class="'+cls+'"'+(ready?(' onclick="openApp(\''+esc(a.url)+'\')"'):'')+'>'+
