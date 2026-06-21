@@ -145,10 +145,11 @@
         '<div class="card"><h3>All</h3>'+kycTable(rows)+'</div>';
     }
     function badge(s){var c=s==='active'?'b-active':(s==='revoked'?'b-revoked':'b-pending');return '<span class="badge '+c+'">'+esc(s)+'</span>';}
+    function empBadge(s){if(!s)return '<span class="badge">—</span>';return '<span class="badge '+(s==='active'?'b-active':'b-revoked')+'">'+esc(s)+'</span>';}
     function kycTable(rows){if(!rows.length)return '<div class="empty">None</div>';
-      return '<table><thead><tr><th>EmpID</th><th>LINE name</th><th>Status</th><th></th></tr></thead><tbody>'+
-        rows.map(function(r){return '<tr><td>'+esc(r.EmpID)+'</td><td>'+esc(r.DisplayName)+'</td><td>'+badge(r.KycStatus)+'</td><td>'+
-          (r.KycStatus!=='active'?'<button class="btn green sm" onclick="kyc(\'approve\',\''+esc(r.KycID)+'\')">Approve</button> ':'')+
+      return '<table><thead><tr><th>EmpID</th><th>LINE name</th><th>KYC status</th><th>Employee</th><th></th></tr></thead><tbody>'+
+        rows.map(function(r){return '<tr><td>'+esc(r.EmpID)+'</td><td>'+esc(r.DisplayName)+'</td><td>'+badge(r.KycStatus)+'</td><td>'+empBadge(r.EmpStatus)+(r.EmpStatus==='inactive'?' <span style="font-size:11px;color:var(--red);font-weight:600">⛔ blocked</span>':'')+'</td><td>'+
+          (r.KycStatus!=='active'&&r.EmpStatus!=='inactive'?'<button class="btn green sm" onclick="kyc(\'approve\',\''+esc(r.KycID)+'\')">Approve</button> ':'')+
           (r.KycStatus!=='revoked'?'<button class="btn red sm" onclick="kyc(\'revoke\',\''+esc(r.KycID)+'\')">Revoke</button>':'')+'</td></tr>';}).join('')+'</tbody></table>';}
     function kyc(act,id){if(BUSY)return;busyOn();
       api(act==='approve'?'cpKycApprove':'cpKycRevoke',{kycId:id}).then(function(r){busyOff();if(!r.ok){alert(r.error||r.reason);return;}
