@@ -20,7 +20,7 @@
     body{margin:0;font-family:"IBM Plex Sans Thai",sans-serif;background:var(--snow);color:var(--charcoal)}
     .app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
     header.bar{background:var(--navy);color:#fff;padding:14px 16px;display:flex;align-items:center;gap:10px;flex:none}
-    header.bar h1{font-size:16px;margin:0;font-weight:600;flex:1}
+    header.bar h1{font-size:16px;margin:0;font-weight:600;flex:1;color:#fff}
     header.bar .who{font-size:11px;color:#cbd5e1}
     main.wrap{flex:1;padding:16px}
     .tiles{display:grid;grid-template-columns:1fr 1fr;gap:11px}
@@ -46,7 +46,6 @@
     <header class="bar"><h1 id="title">My Factory</h1><span class="who" id="who"></span></header>
     <main class="wrap" id="body"><div class="spin" aria-busy="true">Connecting…</div></main>
   </div>
-  <div class="sbtag">Supabase</div>
 
   <script>
   /* ===================== CONFIG (Supabase backend) ===================== */

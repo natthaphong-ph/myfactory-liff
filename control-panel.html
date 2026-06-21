@@ -11,8 +11,9 @@
       --surface:#F1F5F9;--border:#E5E7EB;--red:#EF4444;--green:#10B981;--muted:#64748B;--info:#185FA5;--infobg:#E6F1FB;}
     *{box-sizing:border-box}
     body{margin:0;font-family:"IBM Plex Sans Thai",sans-serif;background:var(--snow);color:var(--charcoal)}
-    header{background:var(--navy);color:#fff;padding:13px 18px;display:flex;justify-content:space-between;align-items:center;gap:8px}
-    header h1{font-size:17px;margin:0;font-weight:600}.who{font-size:12px;color:#cbd5e1}
+    header{background:var(--navy);color:#fff;padding:13px 18px;display:flex;align-items:center;gap:10px}
+    header .bk{cursor:pointer;font-size:20px;width:20px;color:#fff;text-decoration:none;flex:none}
+    header h1{font-size:17px;margin:0;font-weight:600;flex:1;color:#fff}.who{font-size:12px;color:#cbd5e1}
     .shell{display:flex;max-width:1180px;margin:0 auto;min-height:calc(100vh - 50px)}
     nav{width:230px;background:#fff;border-right:1px solid var(--border);padding:12px 10px;flex:none}
     .grp{font-size:13px;font-weight:600;color:var(--navy);padding:10px 8px 1px}
@@ -44,13 +45,12 @@
   </style>
 </head>
 <body>
-  <header><h1>My Factory — Control Panel</h1><span class="who" id="who"></span></header>
+  <header><a class="bk" href="app.html">‹</a><h1>My Factory — Control Panel</h1><span class="who" id="who"></span></header>
   <div class="shell">
     <nav id="nav"></nav>
     <main id="main"><div class="empty">Connecting to LINE…</div></main>
   </div>
   <div class="busy" id="busy">Working…</div>
-  <div class="sbtag">Supabase</div>
   <script>
     /* ===== CONFIG (Supabase backend) ===== */
     var LIFF_ID='2010250488-MyQiwlFp';
