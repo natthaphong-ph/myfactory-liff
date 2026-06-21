@@ -97,7 +97,11 @@
       {key:'group',title:'Groups',data:'groups',idField:'GroupID',cols:[
         {f:'GroupID',id:true},{f:'GroupName'},{f:'OwnerDept',src:'depts',val:'DeptID',label:'DeptName'}]},
       {key:'member',title:'Group Members',data:'members',idField:null,addonly:true,move:true,cols:[
-        {f:'GroupID',src:'groups',val:'GroupID',label:'GroupName'},{f:'EmpID',src:'employees',val:'EmpID',label:'FullName',activeOnly:true}]}
+        {f:'GroupID',src:'groups',val:'GroupID',label:'GroupName'},{f:'EmpID',src:'employees',val:'EmpID',label:'FullName',activeOnly:true}]},
+      {key:'role',title:'Roles',data:'roles',idField:'RoleID',cols:[
+        {f:'RoleID',id:true},{f:'RoleName'},{f:'Description'}]},
+      {key:'app',title:'Apps',data:'apps',idField:'AppID',cols:[
+        {f:'AppID',id:true},{f:'AppName'},{f:'AppURL'},{f:'Icon'},{f:'SortOrder'},{f:'Status',opts:['on','off']}]}
     ];
     var ACCESS_SECTIONS=[
       {key:'userrole',title:'User → Role',data:'userRoles',idField:null,addonly:true,cols:[
@@ -106,11 +110,7 @@
       {key:'roleperm',title:'Role → Permission',data:'rolePerms',idField:null,addonly:true,cols:[
         {f:'RoleID',src:'roles',val:'RoleID',label:'RoleName'},
         {f:'AppID',src:'apps',val:'AppID',label:'AppName'},
-        {f:'PermID',src:'permissions',val:'PermID',label:'PermName'}]},
-      {key:'role',title:'Roles',data:'roles',idField:'RoleID',cols:[
-        {f:'RoleID',id:true},{f:'RoleName'},{f:'Description'}]},
-      {key:'app',title:'Apps',data:'apps',idField:'AppID',noadd:true,cols:[
-        {f:'AppID',id:true},{f:'AppName'},{f:'AppURL'},{f:'Status',opts:['on','off']}]}
+        {f:'PermID',src:'permissions',val:'PermID',label:'PermName'}]}
     ];
 
     var LC='mfccp_';
