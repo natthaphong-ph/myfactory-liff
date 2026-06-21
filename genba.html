@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="th" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Genba & 5S Walk (Supabase)</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="browser-image-compression.js"></script>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link rel="stylesheet" href="fonts/plex-thai.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <style>
+    :root{--navy:#0F172A;--teal:#0D9488;--amber:#D97706;--snow:#FAFAFA;--charcoal:#1E293B;
+      --surface:#F1F5F9;--border:#E5E7EB;--red:#EF4444;--green:#10B981;--muted:#64748B;
+      --pico-font-family:"IBM Plex Sans Thai",system-ui,sans-serif;--pico-primary:#0D9488;
+      --pico-primary-background:#0D9488;--pico-primary-hover-background:#0b7a70;--pico-border-radius:10px;}
+    *{box-sizing:border-box}
+    input,select,textarea,button{margin-bottom:0;--pico-line-height:1.4}
+    input,select,textarea{color:var(--charcoal)!important;--pico-form-element-color:var(--charcoal);font-weight:500}
+    select,option{color:var(--charcoal)!important}
+    input::placeholder,textarea::placeholder{color:#94A3B8!important;font-weight:400}
+    body{margin:0;font-family:"IBM Plex Sans Thai",sans-serif;background:var(--snow);color:var(--charcoal)}
+    .app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+    header.bar{background:var(--navy);color:#fff;padding:13px 16px;display:flex;align-items:center;gap:10px;flex:none}
+    header.bar .bk{cursor:pointer;font-size:20px;width:20px}
+    header.bar h1{font-size:16px;margin:0;font-weight:600;flex:1}
+    header.bar .who{font-size:11px;color:#cbd5e1}
+    main.wrap{flex:1;padding:14px;padding-bottom:90px}
+    .frow{display:flex;gap:8px;margin-bottom:8px}.frow select{flex:1;min-width:0;font-size:14px;padding:9px}
+    .card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:10px}
+    .lcard{display:flex;gap:10px;cursor:pointer}
+    .lcard img{width:64px;height:64px;object-fit:cover;border-radius:8px;background:var(--surface);flex:none}
+    .lcard .ph{width:64px;height:64px;border-radius:8px;background:var(--surface);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:11px;flex:none}
+    .lcard .ttl{font-size:14px;font-weight:600;color:var(--navy)}
+    .lcard .sub{font-size:12px;color:var(--muted);margin-top:2px}
+    .badge{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:600;margin-top:4px}
+    .s-Open{background:#FEF2F2;color:var(--red)}.s-InProgress{background:#FFFBEB;color:var(--amber)}
+    .s-Done{background:#EFF6FF;color:#2563EB}.s-Closed{background:#ECFDF5;color:var(--green)}
+    label{display:block;font-size:13px;color:var(--muted);margin:12px 0 5px}
+    .inp{width:100%;padding:11px;font-size:15px;border:1px solid var(--border);border-radius:9px;background:#fff}
+    textarea.inp{min-height:74px;resize:vertical}
+    .btn{width:100%;margin-top:14px;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:600;cursor:pointer;color:#fff;background:var(--teal)}
+    .btn:disabled{opacity:.5}.btn.sec{background:#fff;color:var(--teal);border:1px solid var(--teal)}.btn.green{background:var(--green)}
+    .fab{position:fixed;left:50%;transform:translateX(-50%);bottom:24px;background:var(--teal);color:#fff;border:none;border-radius:999px;padding:13px 26px;font-size:15px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.22);cursor:pointer;z-index:21}
+    .thumbs{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .thumb{position:relative;width:70px;height:70px}.thumb img{width:70px;height:70px;object-fit:cover;border-radius:8px}
+    .thumb .x{position:absolute;top:-6px;right:-6px;background:var(--red);color:#fff;border-radius:50%;width:20px;height:20px;line-height:20px;text-align:center;font-size:12px;cursor:pointer}
+    .add-photo{width:70px;height:70px;border:2px dashed var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:26px;cursor:pointer}
+    .gallery{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:6px}.gallery img{width:100%;height:90px;object-fit:cover;border-radius:8px}
+    .sec-title{font-size:13px;font-weight:700;color:var(--navy);margin:14px 0 4px}
+    .row{font-size:14px;margin:6px 0}.row b{color:var(--navy)}
+    .err{color:var(--red);font-size:13px;margin-top:8px;text-align:center}
+    .empty{color:var(--muted);font-size:13px;text-align:center;padding:24px}
+    .spin{display:flex;justify-content:center;padding:34px}
+    .sbtag{position:fixed;left:8px;bottom:8px;background:#0F766E;color:#fff;font-size:10px;padding:3px 8px;border-radius:6px;z-index:9;opacity:.85}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="bar"><span class="bk" id="bk">‹</span><h1 id="title">Genba & 5S Walk</h1><span class="who" id="who"></span></header>
+    <main class="wrap" id="body"><div class="spin" aria-busy="true">Connecting…</div></main>
+  </div>
+  <button class="fab" id="fab" style="display:none">+ New</button>
+  <div class="sbtag">Supabase</div>
+
+  <script>
+  /* ===================== CONFIG (Supabase backend) ===================== */
+  var LIFF_ID='2010250488-MyQiwlFp';
+  var FN_URL='https://jmedgllujclrhpjdrfcu.supabase.co/functions/v1/line-auth';
+  var PUBKEY='sb_publishable_0YCGBZ5wt_dTpDB-TlLpiQ_aGMctwXZ';
+  var HOME='app.html';
+  /* ==================================================================== */
+
+  var idToken=null, G=null, SEC='genba', BUSY=false;
+  var body=document.getElementById('body'), titleEl=document.getElementById('title'),
+      whoEl=document.getElementById('who'), bk=document.getElementById('bk'), fab=document.getElementById('fab');
+
+  function api(action,extra){return fetch(FN_URL,{method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+PUBKEY,'apikey':PUBKEY},
+    body:JSON.stringify(Object.assign({action:action,idToken:idToken},extra||{}))}).then(function(r){return r.json();});}
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  /* localStorage SWR cache (shared origin with app.html) */
+  var LC='mfcsb_';
+  function lcGet(k,ttl){try{var o=JSON.parse(localStorage.getItem(LC+k)||'null');if(o&&(Date.now()-o.t)<ttl*1000)return o.d;}catch(e){}return null;}
+  function lcPut(k,d){try{localStorage.setItem(LC+k,JSON.stringify({t:Date.now(),d:d}));}catch(e){}}
+  function lcDel(k){try{localStorage.removeItem(LC+k);}catch(e){}}
+  function lcClear(){try{Object.keys(localStorage).forEach(function(k){if(k.indexOf(LC)===0)localStorage.removeItem(k);});}catch(e){}}
+
+  /* busy + toast */
+  function busyOn(m){BUSY=true;var o=document.getElementById('busy');if(!o){o=document.createElement('div');o.id='busy';
+    o.style.cssText='position:fixed;inset:0;background:rgba(250,250,250,.75);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:60';
+    o.innerHTML='<div class="spin" aria-busy="true"></div><div id="bm" style="margin-top:10px;color:#0F172A;font-size:14px;font-weight:600"></div>';document.body.appendChild(o);}
+    document.getElementById('bm').textContent=m||'Working…';o.style.display='flex';}
+  function busyOff(){BUSY=false;var o=document.getElementById('busy');if(o)o.style.display='none';}
+  function toast(msg,opt){opt=opt||{};var t=document.getElementById('toast');if(!t){t=document.createElement('div');t.id='toast';
+    t.style.cssText='position:fixed;left:50%;bottom:88px;transform:translateX(-50%);max-width:90%;font-size:13px;font-weight:600;padding:10px 16px;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.25);z-index:80;text-align:center;color:#fff';document.body.appendChild(t);}
+    t.style.background=opt.error?'#B91C1C':(opt.ok?'#0F766E':'#0F172A');t.style.cursor=opt.retry?'pointer':'default';
+    t.innerHTML=esc(msg)+(opt.retry?' <u style="margin-left:6px">ลองใหม่</u>':'');t.onclick=opt.retry||null;t.style.display='block';
+    if(t._tm)clearTimeout(t._tm);if(opt.ttl)t._tm=setTimeout(function(){t.style.display='none';},opt.ttl);}
+  function hideToast(){var t=document.getElementById('toast');if(t)t.style.display='none';}
+
+  /* ===================== BOOT ===================== */
+  function goHome(){location.href=HOME;}
+  function boot(){
+    var ac=lcGet('access',3600); if(ac&&ac.profile&&ac.profile.empName) whoEl.textContent=esc(ac.profile.empName);
+    liff.init({liffId:LIFF_ID}).then(function(){
+      if(!liff.isLoggedIn()){liff.login();return;}
+      idToken=liff.getIDToken();
+      openGenba();
+    }).catch(function(e){body.innerHTML='<div class="empty">LINE error: '+esc(e)+'</div>';});
+  }
+  function reauth(){lcClear();if(sessionStorage.getItem('reauth')){body.innerHTML='<div class="empty">เซสชันหมดอายุ — ปิดแล้วเปิดใหม่</div>';return;}
+    sessionStorage.setItem('reauth','1');try{liff.logout();}catch(e){}liff.login();}
+
+  /* ===================== GENBA ===================== */
+  var ASSIGNEE={}, LISTALL=[], SHOWN=0, PAGE=30, FILTERED=false, CURFILTER=null, beforeFiles=[];
+  var GVIEW='list';
+  function openGenba(){
+    titleEl.textContent='Genba & 5S Walk'; GVIEW='list';
+    var cached=lcGet('genbaInit',300);
+    if(cached&&cached.boot){G=cached.boot;buildAsg();renderGList(cached.findings||[]);}
+    else body.innerHTML='<div class="spin" aria-busy="true"></div>';
+    api('genbaInit').then(function(r){
+      if(r&&(r.code||r.error)&&/expired|IdToken|verify failed/i.test(r.code||r.error)){reauth();return;}
+      if(!r||!r.ok){if(!cached)body.innerHTML='<div class="empty">'+esc((r&&r.error)||'No Genba access')+'</div>';return;}
+      lcPut('genbaInit',{boot:r.boot,findings:r.findings});G=r.boot;buildAsg();
+      if(GVIEW==='list'&&!FILTERED)renderGList(r.findings);
+    });
+  }
+  function buildAsg(){ASSIGNEE={};(G.assignees||[]).forEach(function(a){ASSIGNEE[a.id]=a;});}
+  function asgLabel(id){if(!id)return '—';var a=ASSIGNEE[id];return a?(a.type==='group'?'👥 ':'👤 ')+a.name:id;}
+  function gopts(arr,bl){return '<option value="">'+(bl||'— All —')+'</option>'+(arr||[]).map(function(x){return '<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>';}).join('');}
+  function thumb(u,w){return u||'';}   /* Supabase Storage URLs are already public images */
+  function gcard(f){var img=f.cover?'<img src="'+esc(thumb(f.cover,200))+'" referrerpolicy="no-referrer" loading="lazy">':'<div class="ph">no photo</div>';
+    return '<div class="card lcard" onclick="gDetail(\''+f.findingId+'\')">'+img+'<div><div class="ttl">'+esc(f.areaName)+'</div><div class="sub">'+esc(f.categoryName)+' · '+esc(f.severity)+' · '+esc(f.date)+'</div><div class="sub">→ '+esc(asgLabel(f.ownerEmpId))+'</div><span class="badge s-'+f.status.replace(/\s/g,'')+'">'+esc(f.status)+'</span></div></div>';}
+  function renderGList(initial){
+    GVIEW='list'; bk.onclick=goHome;
+    if(G&&(G.perms||[]).indexOf('P_CREATE')>-1){fab.style.display='block';fab.onclick=gForm;} else fab.style.display='none';
+    var asg='<option value="">— All —</option>'+(G.assignees||[]).map(function(a){return '<option value="'+esc(a.id)+'">'+(a.type==='group'?'👥 ':'👤 ')+esc(a.name)+'</option>';}).join('');
+    var st=(G.statuses||['All']).map(function(s){return '<option'+(s==='Outstanding'?' selected':'')+'>'+esc(s)+'</option>';}).join('');
+    body.innerHTML='<div class="card" style="padding:11px">'+
+      '<div class="frow"><select id="fdept">'+gopts(G.departments)+'</select><select id="farea">'+gopts(G.areas)+'</select></div>'+
+      '<div class="frow"><select id="fasg">'+asg+'</select><select id="fstatus">'+st+'</select></div>'+
+      '<button class="btn" style="margin-top:8px" onclick="gApply()">Show</button></div><div id="glist"></div><div id="gmore"></div>';
+    FILTERED=false;SHOWN=0;LISTALL=(initial||[]).filter(function(f){return f.status!=='Closed';});
+    var el=document.getElementById('glist');
+    if(!LISTALL.length){el.innerHTML='<div class="empty">No findings.</div>';return;}
+    gMore();
+  }
+  function gv(id){return document.getElementById(id).value;}
+  function gApply(){if(BUSY)return;busyOn('Loading…');CURFILTER={dept:gv('fdept'),area:gv('farea'),assigned:gv('fasg'),status:gv('fstatus')};FILTERED=true;SHOWN=0;
+    var el=document.getElementById('glist');el.innerHTML='';
+    api('genbaFilter',{filter:Object.assign({},CURFILTER,{offset:0,limit:PAGE})}).then(function(r){busyOff();
+      if(!r.ok){el.innerHTML='<div class="empty">'+esc(r.error||'error')+'</div>';return;}
+      if(!r.findings.length){el.innerHTML='<div class="empty">No findings.</div>';document.getElementById('gmore').innerHTML='';return;}
+      el.insertAdjacentHTML('beforeend',r.findings.map(gcard).join(''));SHOWN=r.findings.length;gSetMore(r.hasMore);});}
+  function gMore(){var el=document.getElementById('glist');if(!el)return;var n=LISTALL.slice(SHOWN,SHOWN+PAGE);el.insertAdjacentHTML('beforeend',n.map(gcard).join(''));SHOWN+=n.length;gSetMore(SHOWN<LISTALL.length);}
+  function gLoadMore(){if(BUSY)return;if(!FILTERED){gMore();return;}busyOn('Loading…');
+    api('genbaFilter',{filter:Object.assign({},CURFILTER,{offset:SHOWN,limit:PAGE})}).then(function(r){busyOff();if(!r.ok)return;document.getElementById('glist').insertAdjacentHTML('beforeend',r.findings.map(gcard).join(''));SHOWN+=r.findings.length;gSetMore(r.hasMore);});}
+  function gSetMore(has){var m=document.getElementById('gmore');if(m)m.innerHTML=has?'<button class="btn sec" onclick="gLoadMore()">Load more</button>':'';}
+  function gRefresh(){lcDel('genbaInit');FILTERED=false;openGenba();}
+
+  /* image resize (iOS-safe + timeout + canvas fallback) */
+  function fileB64(f){return new Promise(function(res,rej){var rd=new FileReader();rd.onloadend=function(){res(String(rd.result).split(',')[1]);};rd.onerror=rej;rd.readAsDataURL(f);});}
+  function canvasResize(f){return new Promise(function(res,rej){var rd=new FileReader();rd.onload=function(e){var im=new Image();im.onload=function(){var w=im.width,h=im.height,m=1280;if(w>h&&w>m){h=Math.round(h*m/w);w=m;}else if(h>m){w=Math.round(w*m/h);h=m;}var c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(im,0,0,w,h);res(c.toDataURL('image/jpeg',0.7).split(',')[1]);};im.onerror=rej;im.src=e.target.result;};rd.onerror=rej;rd.readAsDataURL(f);});}
+  function isIOS(){return /iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);}
+  function withTO(p,ms){return Promise.race([p,new Promise(function(_,r){setTimeout(function(){r(new Error('to'));},ms);})]);}
+  function resize(f){if(typeof imageCompression==='function'){return withTO(imageCompression(f,{maxSizeMB:0.2,maxWidthOrHeight:1280,useWebWorker:!isIOS()}),20000).then(fileB64).catch(function(){return canvasResize(f);});}return canvasResize(f);}
+
+  /* create form */
+  function gForm(){GVIEW='form';beforeFiles=[];bk.onclick=function(){openGenba();};fab.style.display='none';titleEl.textContent='New Finding';
+    var opt=function(a){return (a||[]).map(function(x){return '<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>';}).join('');};
+    var asg='<option value="">— none —</option>'+(G.assignees||[]).map(function(a){return '<option value="'+esc(a.id)+'">'+(a.type==='group'?'👥 ':'👤 ')+esc(a.name)+'</option>';}).join('');
+    body.innerHTML='<div class="card"><label>Area</label><select class="inp" id="area">'+opt(G.areas)+'</select>'+
+      '<label>5S / Safety category</label><select class="inp" id="cat">'+opt(G.categories)+'</select>'+
+      '<label>Severity</label><select class="inp" id="sev"><option>Low</option><option>Medium</option><option>High</option></select>'+
+      '<label>Description</label><textarea class="inp" id="desc" placeholder="พบอะไร?"></textarea>'+
+      '<label>Remark (optional) — เลขใบงาน/WO</label><input class="inp" id="remark" placeholder="WO-2026-0001">'+
+      '<label>มอบหมาย (คน/กลุ่ม)</label><select class="inp" id="owner">'+asg+'</select>'+
+      '<label>กำหนดเสร็จ</label><input class="inp" type="date" id="due">'+
+      '<label>รูป Before (จำเป็น, สูงสุด '+G.maxPhotos+')</label><div class="thumbs" id="thumbs"></div>'+
+      '<div class="err" id="err"></div><button class="btn" id="save" onclick="gSave()">Submit finding</button></div>';
+    gThumbs();}
+  function gThumbs(){var t=document.getElementById('thumbs');var h='';beforeFiles.forEach(function(f,i){h+='<div class="thumb"><img src="'+f.preview+'"><div class="x" onclick="gRm('+i+')">×</div></div>';});if(beforeFiles.length<G.maxPhotos)h+='<div class="add-photo" onclick="gPick()">+</div>';t.innerHTML=h;}
+  function gPick(){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.capture='environment';inp.onchange=function(){var f=inp.files[0];if(!f)return;var rd=new FileReader();rd.onload=function(e){beforeFiles.push({file:f,preview:e.target.result});gThumbs();};rd.readAsDataURL(f);};inp.click();}
+  function gRm(i){beforeFiles.splice(i,1);gThumbs();}
+  function gSave(){if(BUSY)return;var err=document.getElementById('err');if(!beforeFiles.length){err.textContent='ต้องมีรูป Before อย่างน้อย 1 รูป';return;}
+    var b=document.getElementById('save');b.disabled=true;b.textContent='กำลังบันทึก…';busyOn('กำลังบันทึก…');
+    var payload={area:gv('area'),category:gv('cat'),severity:gv('sev'),description:gv('desc'),remark:gv('remark'),ownerEmpId:gv('owner'),dueDate:gv('due')};
+    var files=beforeFiles.slice();
+    api('genbaCreate',{payload:payload}).then(function(r){busyOff();
+      if(!r.ok){b.disabled=false;b.textContent='Submit finding';err.textContent=r.error||r.reason||'error';return;}
+      beforeFiles=[];lcDel('genbaInit');openGenba();uploadBatch(r.findingId,files,'before');});}
+  /* batch upload (1 round-trip) + toast — sequential resize (iOS-safe) */
+  function resizeSeq(files,i,acc){
+    if(i>=files.length) return Promise.resolve(acc);
+    toast('กำลังเตรียมรูป '+(i+1)+'/'+files.length+'…');
+    return resize(files[i].file||files[i]).then(function(b64){acc.push({base64:b64,mimeType:'image/jpeg'});return resizeSeq(files,i+1,acc);});
+  }
+  function uploadBatch(fid,files,phase,after){
+    if(!files.length){if(after)after();return;}
+    var fail=function(){toast('อัปโหลดรูปไม่สำเร็จ — แตะเพื่อลองใหม่',{error:true,retry:function(){hideToast();uploadBatch(fid,files,phase,after);}});};
+    resizeSeq(files,0,[]).then(function(photos){
+      toast('กำลังอัปโหลด '+photos.length+' รูป…');
+      return api('genbaPhotoBatch',{findingId:fid,phase:phase,photos:photos});
+    }).then(function(r){
+      if(!r||!r.ok){fail();return;}
+      toast('อัปโหลดรูปเสร็จ ✓',{ok:true,ttl:2500});lcDel('genbaInit');
+      if(after)after(); else if(GVIEW==='list')gRefresh();
+    }).catch(fail);}
+
+  /* detail */
+  var afterFiles=[];
+  function gDetail(fid){GVIEW='detail';bk.onclick=function(){openGenba();};fab.style.display='none';titleEl.textContent='Finding';body.innerHTML='<div class="spin" aria-busy="true"></div>';
+    api('genbaGet',{findingId:fid}).then(function(r){if(!r.ok){body.innerHTML='<div class="empty">not found</div>';return;}gRenderDetail(r.finding,r.photos);});}
+  function gRenderDetail(f,photos){
+    afterFiles=[];
+    var before=photos.filter(function(p){return p.phase==='before';}), after=photos.filter(function(p){return p.phase==='after';});
+    var gal=function(a){return a.length?'<div class="gallery">'+a.map(function(p){return '<a href="'+esc(p.url)+'" target="_blank"><img src="'+esc(thumb(p.url,400))+'" referrerpolicy="no-referrer" loading="lazy"></a>';}).join('')+'</div>':'<div class="empty" style="padding:8px">none</div>';};
+    var h='<div class="card"><div class="row"><b>'+esc(f.areaName)+'</b> <span class="badge s-'+f.status.replace(/\s/g,'')+'">'+esc(f.status)+'</span></div>'+
+      '<div class="row">'+esc(f.categoryName)+' · '+esc(f.severity)+'</div><div class="row">'+esc(f.description||'-')+'</div>'+
+      '<div class="row"><span style="color:var(--muted)">Remark:</span> '+esc(f.remark||'-')+'</div>'+
+      '<div class="row" style="color:var(--muted)">By '+esc(f.walker)+' · '+esc(f.date)+' · '+esc(asgLabel(f.ownerEmpId))+(f.dueDate?(' · due '+esc(f.dueDate)):'')+'</div>'+
+      '<div class="sec-title">Before</div>'+gal(before)+'<div class="sec-title">After</div>'+gal(after)+'</div>';
+    var canAct=((G.perms||[]).indexOf('P_APPROVE')>-1)||(f.ownerEmpId&&(String(f.ownerEmpId)===String(G.empId)||(G.myGroups||[]).indexOf(f.ownerEmpId)>-1));
+    var donePick=canAct&&f.status!=='Closed'&&f.status!=='Done';
+    if(f.status!=='Closed'&&(canAct||G.canClose)){
+      h+='<div class="card"><div class="sec-title">Update</div>';
+      if(canAct){
+        h+='<label style="margin-top:2px">Remark (WO no.)</label><input class="inp" id="remarkEdit" value="'+esc(f.remark||'')+'"><button class="btn sec" onclick="gRemark(\''+f.findingId+'\')">Save remark</button>';
+        if(donePick){h+='<button class="btn sec" onclick="gStatus(\''+f.findingId+'\',\'In Progress\')">Mark In Progress</button>'+
+          '<div class="sec-title">Mark Done — ต้องมีรูป After ≥1</div><div class="thumbs" id="athumbs"></div><div class="err" id="aerr"></div><button class="btn sec" onclick="gMarkDone(\''+f.findingId+'\')">Mark Done</button>';}
+        else h+='<div class="sub" style="margin:10px 0 0;color:var(--muted);font-size:13px">งาน Done แล้ว — รอหัวหน้าปิดงาน</div>';
+      } else h+='<div class="sub" style="color:var(--muted);font-size:13px">คุณไม่ใช่ผู้รับมอบหมาย — ดูได้อย่างเดียว</div>';
+      if(G.canClose&&f.status==='Done') h+='<div class="sec-title">Close</div><button class="btn green" onclick="gClose(\''+f.findingId+'\')">Verify & Close (Done → Closed)</button>';
+      h+='</div>';
+    }
+    body.innerHTML=h; window._fid=f.findingId; if(donePick)aThumbs();
+  }
+  function aThumbs(){var t=document.getElementById('athumbs');if(!t)return;var h='';afterFiles.forEach(function(f,i){h+='<div class="thumb"><img src="'+f.preview+'"><div class="x" onclick="aRm('+i+')">×</div></div>';});if(afterFiles.length<G.maxPhotos)h+='<div class="add-photo" onclick="aPick()">+</div>';t.innerHTML=h;}
+  function aPick(){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.capture='environment';inp.onchange=function(){var f=inp.files[0];if(!f)return;var rd=new FileReader();rd.onload=function(e){afterFiles.push({file:f,preview:e.target.result});aThumbs();};rd.readAsDataURL(f);};inp.click();}
+  function aRm(i){afterFiles.splice(i,1);aThumbs();}
+  function reasonTh(r){return r==='need_after_photo'?'ต้องมีรูป After อย่างน้อย 1 รูป':(r==='not_done'?'ต้องเป็น Done ก่อนปิด':(r==='wrong_dept'?'อยู่นอกแผนกของคุณ':(r==='not_assigned'?'คุณไม่ใช่ผู้รับมอบหมาย':r)));}
+  function gStatus(fid,st){if(BUSY)return;BUSY=true;var b=document.querySelector('.badge');var pT=b?b.textContent:'',pC=b?b.className:'';if(b){b.textContent=st;b.className='badge s-'+st.replace(/\s/g,'');}lcDel('genbaInit');
+    api('genbaStatus',{findingId:fid,status:st}).then(function(r){BUSY=false;if(!r.ok){if(b){b.textContent=pT;b.className=pC;}alert(r.error||reasonTh(r.reason)||'error');return;}gDetail(fid);});}
+  function gRemark(fid){if(BUSY)return;BUSY=true;var v=document.getElementById('remarkEdit').value;var btn=(window.event&&window.event.target)||null;if(btn)btn.textContent='Saved ✓';lcDel('genbaInit');
+    api('genbaRemark',{findingId:fid,remark:v}).then(function(r){BUSY=false;if(!r.ok){if(btn)btn.textContent='Save remark';alert(r.error||reasonTh(r.reason)||'error');}});}
+  function gMarkDone(fid){if(BUSY)return;var err=document.getElementById('aerr');if(!afterFiles.length){err.textContent='ต้องถ่ายรูป After ก่อน Mark Done';return;}
+    busyOn('กำลังอัปโหลด…');uploadBatch(fid,afterFiles.slice(),'after',function(){busyOff();gStatusSilent(fid,'Done');});}
+  function gStatusSilent(fid,st){api('genbaStatus',{findingId:fid,status:st}).then(function(r){if(!r.ok){alert(r.error||reasonTh(r.reason)||'error');gDetail(fid);return;}lcDel('genbaInit');gDetail(fid);});}
+  function gClose(fid){if(BUSY)return;if(!confirm('ยืนยันปิดงาน (Done → Closed)?'))return;gStatus(fid,'Closed');}
+
+  boot();
+  </script>
+</body>
+</html>
