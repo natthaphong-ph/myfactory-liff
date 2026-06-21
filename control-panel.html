@@ -85,6 +85,7 @@
     function api(a,e){return fetch(FN_URL,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+PUBKEY,'apikey':PUBKEY},body:JSON.stringify(Object.assign({action:a,idToken:idToken},e||{}))}).then(function(r){return r.json();});}
     function reauth(){lcClear();if(sessionStorage.getItem('reauth')){$('main').innerHTML='<div class="empty">Session expired — close and reopen</div>';return;}sessionStorage.setItem('reauth','1');try{liff.logout();}catch(e){}liff.login();}
 
+    /* CONFIGURATION = define the system (master data + roles + permissions), in setup order */
     var CONFIG_SECTIONS=[
       {key:'dept',title:'Departments',data:'depts',idField:'DeptID',cols:[
         {f:'DeptID',id:true},{f:'DeptName'}]},
@@ -96,21 +97,22 @@
         {f:'CatID',id:true},{f:'CatName'}]},
       {key:'group',title:'Groups',data:'groups',idField:'GroupID',cols:[
         {f:'GroupID',id:true},{f:'GroupName'},{f:'OwnerDept',src:'depts',val:'DeptID',label:'DeptName'}]},
-      {key:'member',title:'Group Members',data:'members',idField:null,addonly:true,move:true,cols:[
-        {f:'GroupID',src:'groups',val:'GroupID',label:'GroupName'},{f:'EmpID',src:'employees',val:'EmpID',label:'FullName',activeOnly:true}]},
+      {key:'app',title:'Apps',data:'apps',idField:'AppID',cols:[
+        {f:'AppID',id:true},{f:'AppName'},{f:'AppURL'},{f:'Icon'},{f:'SortOrder'},{f:'Status',opts:['on','off']}]},
       {key:'role',title:'Roles',data:'roles',idField:'RoleID',cols:[
         {f:'RoleID',id:true},{f:'RoleName'},{f:'Description'}]},
-      {key:'app',title:'Apps',data:'apps',idField:'AppID',cols:[
-        {f:'AppID',id:true},{f:'AppName'},{f:'AppURL'},{f:'Icon'},{f:'SortOrder'},{f:'Status',opts:['on','off']}]}
-    ];
-    var ACCESS_SECTIONS=[
-      {key:'userrole',title:'User → Role',data:'userRoles',idField:null,addonly:true,cols:[
-        {f:'EmpID',src:'employees',val:'EmpID',label:'FullName',activeOnly:true},
-        {f:'RoleID',src:'roles',val:'RoleID',label:'RoleName'}]},
       {key:'roleperm',title:'Role → Permission',data:'rolePerms',idField:null,addonly:true,cols:[
         {f:'RoleID',src:'roles',val:'RoleID',label:'RoleName'},
         {f:'AppID',src:'apps',val:'AppID',label:'AppName'},
         {f:'PermID',src:'permissions',val:'PermID',label:'PermName'}]}
+    ];
+    /* ACCESS CONTROL = assign people: give roles, then put them in groups */
+    var ACCESS_SECTIONS=[
+      {key:'userrole',title:'User → Role',data:'userRoles',idField:null,addonly:true,move:true,cols:[
+        {f:'EmpID',src:'employees',val:'EmpID',label:'FullName',activeOnly:true},
+        {f:'RoleID',src:'roles',val:'RoleID',label:'RoleName'}]},
+      {key:'member',title:'Group Members',data:'members',idField:null,addonly:true,move:true,cols:[
+        {f:'GroupID',src:'groups',val:'GroupID',label:'GroupName'},{f:'EmpID',src:'employees',val:'EmpID',label:'FullName',activeOnly:true}]}
     ];
 
     var LC='mfccp_';
@@ -243,10 +245,10 @@
           var enc=encodeURIComponent(JSON.stringify(match));
           var mv='';
           if(s.move){
-            var selId='mv_'+secKey+'_'+ri;
-            var optsG=(M['groups']||[]).map(function(g){return '<option value="'+esc(g.GroupID)+'"'+(g.GroupID===r['GroupID']?' disabled':'')+'>'+esc(g.GroupName)+'</option>';}).join('');
-            mv='<select id="'+selId+'" style="width:auto;display:inline-block;margin-right:6px"><option value="">Move to…</option>'+optsG+'</select>'+
-               '<button class="btn sm" onclick="moveMember(\''+esc(r['EmpID'])+'\',\''+esc(r['GroupID'])+'\',\''+selId+'\')">Move</button> ';
+            var mc=MOVE[secKey]; var selId='mv_'+secKey+'_'+ri;
+            var optsM=(M[mc.src]||[]).map(function(x){return '<option value="'+esc(x[mc.val])+'"'+(x[mc.val]===r[mc.change]?' disabled':'')+'>'+esc(x[mc.label])+'</option>';}).join('');
+            mv='<select id="'+selId+'" style="width:auto;display:inline-block;margin-right:6px"><option value="">'+mc.ph+'</option>'+optsM+'</select>'+
+               '<button class="btn sm" onclick="moveRow(\''+secKey+'\',\''+esc(r[mc.fixed])+'\',\''+esc(r[mc.change])+'\',\''+selId+'\')">Move</button> ';
           }
           tail='<td style="white-space:nowrap">'+mv+'<button class="btn sm rv" onclick="revokeRow(\''+secKey+'\',\''+enc+'\')">Revoke</button></td>';
         } else {
@@ -316,17 +318,24 @@
         M=null;loadConfig(secKey);});
     }
     /* move a member to another group in one click: revoke old membership + add new (upsert reactivates) */
-    function moveMember(empId,fromGroup,selId){
-      if(BUSY)return;
-      var toGroup=$(selId)?$(selId).value:'';
-      if(!toGroup){alert('Select a target group first');return;}
-      if(toGroup===fromGroup){alert('Target group must differ from the current one');return;}
-      if(!confirm('Move '+empId+' to the new group?'))return;
+    /* Move = reassign in one click (revoke old + add new). fixed=key kept, change=key swapped. */
+    var MOVE={
+      member:{fixed:'EmpID',change:'GroupID',src:'groups',val:'GroupID',label:'GroupName',ph:'Move to…'},
+      userrole:{fixed:'EmpID',change:'RoleID',src:'roles',val:'RoleID',label:'RoleName',ph:'New role…'}
+    };
+    function moveRow(secKey,fixedVal,fromVal,selId){
+      if(BUSY)return;var mc=MOVE[secKey];
+      var toVal=$(selId)?$(selId).value:'';
+      if(!toVal){alert('Select a target first');return;}
+      if(toVal===fromVal){alert('Target must differ from the current one');return;}
+      if(!confirm('Move '+fixedVal+'?'))return;
       busyOn('Moving…');
-      api('cpRevoke',{table:'member',match:{GroupID:fromGroup,EmpID:empId}}).then(function(r1){
+      var oldMatch={}; oldMatch[mc.fixed]=fixedVal; oldMatch[mc.change]=fromVal;
+      var newRow={}; newRow[mc.fixed]=fixedVal; newRow[mc.change]=toVal;
+      api('cpRevoke',{table:secKey,match:oldMatch}).then(function(r1){
         if(!r1||!r1.ok){busyOff();alert((r1&&(r1.error||r1.reason))||'revoke failed');return null;}
-        return api('cpAddRow',{table:'member',row:{GroupID:toGroup,EmpID:empId}});
-      }).then(function(r2){if(!r2)return;busyOff();if(!r2.ok){alert(r2.error||r2.reason);return;}M=null;loadConfig('member');});
+        return api('cpAddRow',{table:secKey,row:newRow});
+      }).then(function(r2){if(!r2)return;busyOff();if(!r2.ok){alert(r2.reason==='emp_inactive'?'Employee is not Active':(r2.error||r2.reason));return;}M=null;loadConfig(secKey);});
     }
     /* ---- sortable table headers: click any column to sort, click again to reverse ---- */
     function cellVal(td){if(!td)return '';var inp=td.querySelector('input,select');if(inp){if(inp.tagName==='SELECT'){var o=inp.options[inp.selectedIndex];return o?o.text:inp.value;}return inp.value;}return (td.innerText||td.textContent||'').trim();}
