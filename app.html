@@ -107,7 +107,7 @@
     titleEl.textContent='My Factory';
     var apps=ACCESS.apps||[];
     var tiles=apps.map(function(a){
-      var ic=APP_ICON[a.appId]||'▣';
+      var ic=APP_ICON[a.appId]||a.icon||'▣';
       var ready=a.url && a.url!=='set-after-deploy';
       var cls='tile'+(ready?'':' soon');
       return '<div class="'+cls+'"'+(ready?(' onclick="openApp(\''+esc(a.url)+'\')"'):'')+'>'+
