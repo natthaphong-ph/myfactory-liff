@@ -95,6 +95,7 @@
       if(d.state==='not_registered'||d.state==='reverify_required') renderRegister(d, d.state==='reverify_required');
       else if(d.state==='pending') stateMsg('⏳','รออนุมัติ','ส่งคำขอแล้ว รอผู้ดูแลอนุมัติ');
       else if(d.state==='revoked') stateMsg('⛔','สิทธิถูกถอน','ติดต่อผู้ดูแลระบบ');
+      else if(d.state==='denied_inactive') stateMsg('⛔','บัญชีถูกปิดการใช้งาน','ข้อมูลพนักงานถูกตั้งเป็น inactive — ติดต่อ HR/ผู้ดูแลระบบ');
       else stateMsg('⛔','เข้าถึงไม่ได้',esc(d.state||''));
     }
   }
