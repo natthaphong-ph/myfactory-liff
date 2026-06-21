@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My Factory — Control Panel (Supabase)</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <link rel="stylesheet" href="fonts/plex-thai.css">
+  <style>
+    :root{--navy:#0F172A;--teal:#0D9488;--amber:#D97706;--snow:#FAFAFA;--charcoal:#1E293B;
+      --surface:#F1F5F9;--border:#E5E7EB;--red:#EF4444;--green:#10B981;--muted:#64748B;--info:#185FA5;--infobg:#E6F1FB;}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:"IBM Plex Sans Thai",sans-serif;background:var(--snow);color:var(--charcoal)}
+    header{background:var(--navy);color:#fff;padding:13px 18px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+    header h1{font-size:17px;margin:0;font-weight:600}.who{font-size:12px;color:#cbd5e1}
+    .shell{display:flex;max-width:1180px;margin:0 auto;min-height:calc(100vh - 50px)}
+    nav{width:230px;background:#fff;border-right:1px solid var(--border);padding:12px 10px;flex:none}
+    .grp{font-size:13px;font-weight:600;color:var(--navy);padding:10px 8px 1px}
+    .grpd{font-size:11px;color:var(--muted);padding:0 8px 6px}
+    .nav{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;font-size:13px;color:var(--charcoal);cursor:pointer}
+    .nav:hover{background:var(--surface)}
+    .nav.active{background:var(--infobg);color:var(--info);border-left:3px solid var(--info)}
+    .nav .n{display:inline-block;width:16px;color:var(--muted);font-size:11px}
+    main{flex:1;padding:18px;min-width:0}
+    .card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px}
+    h2{font-size:17px;margin:0 0 2px;color:var(--navy);font-weight:600}.sub{font-size:12px;color:var(--muted);margin-bottom:14px}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th,td{text-align:left;padding:7px 6px;border-bottom:1px solid var(--border)}
+    th{color:var(--muted);font-size:11px;text-transform:uppercase}
+    input,select{padding:8px;border:1px solid var(--border);border-radius:7px;font-size:13px;width:100%}
+    .btn{border:none;border-radius:7px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;color:#fff;background:var(--teal)}
+    .btn.sm{padding:5px 10px;font-size:12px}.btn.green{background:var(--green)}.btn.red{background:var(--red)}.btn.gray{background:var(--muted)}
+    .btn.rv{background:#fff;color:var(--red);border:1px solid var(--red)}.btn.rv:hover{background:#FEF2F2}
+    .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600}
+    .b-active{background:#ECFDF5;color:var(--green)}.b-pending{background:#FFFBEB;color:var(--amber)}.b-revoked{background:#FEF2F2;color:var(--red)}
+    .addrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-top:10px;align-items:end}
+    .linkrow{display:flex;align-items:center;gap:12px;padding:13px;border:1px solid var(--border);border-radius:10px;text-decoration:none;color:var(--charcoal);margin-bottom:10px}
+    .linkrow:hover{background:var(--surface)} .linkrow .t{flex:1} .linkrow .t b{color:var(--navy)} .linkrow .t span{font-size:12px;color:var(--muted)}
+    .soon{border-style:dashed;color:var(--muted)}
+    .busy{position:fixed;inset:0;background:rgba(250,250,250,.7);display:none;align-items:center;justify-content:center;z-index:50;font-weight:600;color:var(--navy)}
+    .empty{color:var(--muted);font-size:13px;text-align:center;padding:24px}
+    .sbtag{position:fixed;left:8px;bottom:8px;background:#0F766E;color:#fff;font-size:10px;padding:3px 8px;border-radius:6px;z-index:9;opacity:.85}
+    @media(max-width:760px){.shell{flex-direction:column}nav{width:auto;border-right:none;border-bottom:1px solid var(--border)}}
+  </style>
+</head>
+<body>
+  <header><h1>My Factory — Control Panel</h1><span class="who" id="who"></span></header>
+  <div class="shell">
+    <nav id="nav"></nav>
+    <main id="main"><div class="empty">Connecting to LINE…</div></main>
+  </div>
+  <div class="busy" id="busy">Working…</div>
+  <div class="sbtag">Supabase</div>
+  <script>
+    /* ===== CONFIG (Supabase backend) ===== */
+    var LIFF_ID='2010250488-MyQiwlFp';
+    var FN_URL='https://jmedgllujclrhpjdrfcu.supabase.co/functions/v1/line-auth';
+    var PUBKEY='sb_publishable_0YCGBZ5wt_dTpDB-TlLpiQ_aGMctwXZ';
+    var DASH_URL='genba-dashboard-sb.html';
+    /* ===================================== */
+    var idToken=null, BOOT=null, M=null, SEC='kyc', BUSY=false;
+    var $=function(id){return document.getElementById(id);};
+    function busyOn(m){BUSY=true;$('busy').textContent=m||'Working…';$('busy').style.display='flex';}
+    function busyOff(){BUSY=false;$('busy').style.display='none';}
+    function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+    function api(a,e){return fetch(FN_URL,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+PUBKEY,'apikey':PUBKEY},body:JSON.stringify(Object.assign({action:a,idToken:idToken},e||{}))}).then(function(r){return r.json();});}
+    function reauth(){lcClear();if(sessionStorage.getItem('reauth')){$('main').innerHTML='<div class="empty">เซสชันหมดอายุ — ปิดแล้วเปิดใหม่</div>';return;}sessionStorage.setItem('reauth','1');try{liff.logout();}catch(e){}liff.login();}
+
+    var CONFIG_SECTIONS=[
+      {key:'dept',title:'Departments',data:'depts',idField:'DeptID',cols:[
+        {f:'DeptID',id:true},{f:'DeptName'}]},
+      {key:'emp',title:'Employees',data:'employees',idField:'EmpID',cols:[
+        {f:'EmpID',id:true},{f:'FullName'},{f:'Dept',src:'depts',val:'DeptID',label:'DeptName'},{f:'Position'},{f:'Status',opts:['active','inactive']}]},
+      {key:'area',title:'Areas',data:'areas',idField:'AreaID',cols:[
+        {f:'AreaID',id:true},{f:'AreaName'},{f:'Zone'},{f:'OwnerDept',src:'depts',val:'DeptID',label:'DeptName'}]},
+      {key:'cat',title:'5S Categories',data:'categories',idField:'CatID',cols:[
+        {f:'CatID',id:true},{f:'CatName'}]},
+      {key:'group',title:'Groups',data:'groups',idField:'GroupID',cols:[
+        {f:'GroupID',id:true},{f:'GroupName'},{f:'OwnerDept',src:'depts',val:'DeptID',label:'DeptName'}]},
+      {key:'member',title:'Group Members',data:'members',idField:null,addonly:true,cols:[
+        {f:'GroupID',src:'groups',val:'GroupID',label:'GroupName'},{f:'EmpID',src:'employees',val:'EmpID',label:'FullName'}]}
+    ];
+    var ACCESS_SECTIONS=[
+      {key:'userrole',title:'User → Role',data:'userRoles',idField:null,addonly:true,cols:[
+        {f:'EmpID',src:'employees',val:'EmpID',label:'FullName'},
+        {f:'RoleID',src:'roles',val:'RoleID',label:'RoleName'}]},
+      {key:'roleperm',title:'Role → Permission',data:'rolePerms',idField:null,addonly:true,cols:[
+        {f:'RoleID',src:'roles',val:'RoleID',label:'RoleName'},
+        {f:'AppID',src:'apps',val:'AppID',label:'AppName'},
+        {f:'PermID',src:'permissions',val:'PermID',label:'PermName'}]},
+      {key:'role',title:'Roles',data:'roles',idField:'RoleID',cols:[
+        {f:'RoleID',id:true},{f:'RoleName'},{f:'Description'}]},
+      {key:'app',title:'Apps',data:'apps',idField:'AppID',noadd:true,cols:[
+        {f:'AppID',id:true},{f:'AppName'},{f:'AppURL'},{f:'Status',opts:['on','off']}]}
+    ];
+
+    var LC='mfccp_';
+    function lcGet(k,ttl){try{var o=JSON.parse(localStorage.getItem(LC+k)||'null');if(o&&(Date.now()-o.t)<ttl*1000)return o.d;}catch(e){}return null;}
+    function lcPut(k,d){try{localStorage.setItem(LC+k,JSON.stringify({t:Date.now(),d:d}));}catch(e){}}
+    function lcClear(){try{Object.keys(localStorage).forEach(function(k){if(k.indexOf(LC)===0)localStorage.removeItem(k);});}catch(e){}}
+    function applyBoot(r){
+      BOOT=r; $('who').textContent=r.empName; buildNav();
+      if(!SEC){ SEC=r.canApprove?'kyc':(r.canDashboard?'report':(r.canConfig?'dept':(r.canGrant?'userrole':null))); }
+      if(SEC)show(SEC); else $('main').innerHTML='<div class="empty">No Control Panel access</div>';
+    }
+    function boot(){
+      liff.init({liffId:LIFF_ID}).then(function(){
+        if(!liff.isLoggedIn()){liff.login();return;}
+        idToken=liff.getIDToken();
+        var cached=lcGet('cpboot',60);
+        if(cached&&cached.ok) applyBoot(cached);
+        return api('cpBoot').then(function(r){
+          if(r&&(r.code||r.error)&&/expired|IdToken|verify failed/i.test(r.code||r.error)){reauth();return;}
+          sessionStorage.removeItem('reauth');
+          if(!r||!r.ok){ if(!cached)$('main').innerHTML='<div class="empty">'+esc((r&&r.error)||'No Control Panel access')+'</div>'; return; }
+          lcPut('cpboot',r); applyBoot(r);
+        });
+      }).catch(function(e){$('main').innerHTML='<div class="empty">LINE error: '+e+'</div>';});
+    }
+    function buildNav(){
+      var h='';
+      if(BOOT.canApprove){h+='<div class="grp">Approve</div><div class="grpd">อนุมัติสิทธิผู้ใช้งาน</div>'+navItem('kyc','ti','KYC approval');}
+      if(BOOT.canDashboard){h+='<div class="grp">Dashboard & Report</div><div class="grpd">รายงาน & แดชบอร์ด</div>'+navItem('report','ti','System reports');}
+      if(BOOT.canConfig){h+='<div class="grp">Configuration</div><div class="grpd">ตั้งค่าระบบ (เรียงตามลำดับ)</div>'+
+        CONFIG_SECTIONS.map(function(s,i){return navItem(s.key,(i+1),s.title);}).join('');}
+      if(BOOT.canGrant){h+='<div class="grp">Access control</div><div class="grpd">กำหนดสิทธิผู้ใช้งาน (เฉพาะผู้ดูแลระบบ)</div>'+
+        ACCESS_SECTIONS.map(function(s){return navItem(s.key,'ti',s.title);}).join('');}
+      $('nav').innerHTML=h;
+    }
+    function navItem(key,n,label){return '<div class="nav" data-k="'+key+'" onclick="show(\''+key+'\')"><span class="n">'+(n==='ti'?'·':n)+'</span>'+esc(label)+'</div>';}
+
+    function show(sec){
+      SEC=sec;
+      document.querySelectorAll('.nav').forEach(function(e){e.classList.toggle('active',e.dataset.k===sec);});
+      if(sec==='kyc')renderKyc();
+      else if(sec==='report')renderReport();
+      else loadConfig(sec);
+    }
+
+    /* ---- Approve ---- */
+    function renderKyc(){
+      var rows=BOOT.kyc||[], pend=rows.filter(function(r){return r.KycStatus==='pending';});
+      $('main').innerHTML='<h2>KYC approval</h2><div class="sub">อนุมัติ/เพิกถอนสิทธิผู้ใช้งาน</div>'+
+        '<div class="card"><h3>Pending ('+pend.length+')</h3>'+kycTable(pend)+'</div>'+
+        '<div class="card"><h3>All</h3>'+kycTable(rows)+'</div>';
+    }
+    function badge(s){var c=s==='active'?'b-active':(s==='revoked'?'b-revoked':'b-pending');return '<span class="badge '+c+'">'+esc(s)+'</span>';}
+    function kycTable(rows){if(!rows.length)return '<div class="empty">None</div>';
+      return '<table><thead><tr><th>EmpID</th><th>LINE name</th><th>Status</th><th></th></tr></thead><tbody>'+
+        rows.map(function(r){return '<tr><td>'+esc(r.EmpID)+'</td><td>'+esc(r.DisplayName)+'</td><td>'+badge(r.KycStatus)+'</td><td>'+
+          (r.KycStatus!=='active'?'<button class="btn green sm" onclick="kyc(\'approve\',\''+esc(r.KycID)+'\')">Approve</button> ':'')+
+          (r.KycStatus!=='revoked'?'<button class="btn red sm" onclick="kyc(\'revoke\',\''+esc(r.KycID)+'\')">Revoke</button>':'')+'</td></tr>';}).join('')+'</tbody></table>';}
+    function kyc(act,id){if(BUSY)return;busyOn();
+      api(act==='approve'?'cpKycApprove':'cpKycRevoke',{kycId:id}).then(function(r){busyOff();if(!r.ok){alert(r.error||r.reason);return;}
+        api('cpBoot').then(function(b){if(b.ok){BOOT=b;lcPut('cpboot',b);renderKyc();}});});}
+
+    /* ---- Dashboard & Report (links) ---- */
+    function renderReport(){
+      $('main').innerHTML='<h2>System reports</h2><div class="sub">เปิดรายงาน/แดชบอร์ดในแท็บใหม่</div>'+
+        link(DASH_URL,'Genba & 5S dashboard','KPI · กราฟ · findings · พิมพ์รายงาน')+
+        '<div class="linkrow soon"><div class="t"><b>TPM TAG dashboard</b><br><span>เร็ว ๆ นี้</span></div></div>'+
+        '<div class="linkrow soon"><div class="t"><b>Check-in dashboard</b><br><span>เร็ว ๆ นี้</span></div></div>';
+    }
+    function link(url,t,d){return '<div class="linkrow" style="cursor:pointer" onclick="location.href=\''+esc(url)+'\'"><div class="t"><b>'+esc(t)+'</b><br><span>'+esc(d)+'</span></div>›</div>';}
+
+    /* ---- Configuration ---- */
+    function mergeAccess(a){if(a&&a.ok){M.roles=a.roles;M.permissions=a.permissions;M.apps=a.apps;M.userRoles=a.userRoles;M.rolePerms=a.rolePerms;if(!M.employees)M.employees=a.employees;}}
+    function loadConfig(secKey){
+      if(M){renderConfig(secKey);return;}
+      busyOn('Loading…');
+      function fail(e){busyOff();$('main').innerHTML='<div class="empty">'+esc(e||'error')+'</div>';}
+      function done(){busyOff();renderConfig(secKey);}
+      if(!BOOT.canConfig && !BOOT.canGrant){fail('No config access');return;}
+      var pM=BOOT.canConfig?api('cpMasters'):Promise.resolve(null);
+      var pA=BOOT.canGrant?api('cpAccess'):Promise.resolve(null);
+      Promise.all([pM,pA]).then(function(res){
+        var m=res[0], a=res[1];
+        if(BOOT.canConfig){ if(!m||!m.ok){fail(m&&m.error);return;} M=m; } else { M={}; }
+        if(BOOT.canGrant){ if(!a||!a.ok){fail(a&&a.error);return;} mergeAccess(a); }
+        done();
+      });
+    }
+    function dmap(arr,k,v){var o={};(arr||[]).forEach(function(x){o[x[k]]=x[v];});return o;}
+    function resolveCell(secKey,col,val){
+      var D=dmap(M.depts,'DeptID','DeptName'), G=dmap(M.groups,'GroupID','GroupName'), E=dmap(M.employees,'EmpID','FullName');
+      var R=dmap(M.roles,'RoleID','RoleName'), P=dmap(M.permissions,'PermID','PermName'), A=dmap(M.apps,'AppID','AppName');
+      if((secKey==='emp'&&col==='Dept')||((secKey==='area'||secKey==='group')&&col==='OwnerDept'))return D[val]||val||'-';
+      if(secKey==='member'&&col==='GroupID')return G[val]||val;
+      if(secKey==='member'&&col==='EmpID')return E[val]||val;
+      if(secKey==='userrole'&&col==='EmpID')return E[val]||val;
+      if((secKey==='userrole'||secKey==='roleperm')&&col==='RoleID')return R[val]||val;
+      if(secKey==='roleperm'&&col==='AppID')return A[val]||val;
+      if(secKey==='roleperm'&&col==='PermID')return P[val]||val;
+      return val;
+    }
+    function sec_(k){return CONFIG_SECTIONS.concat(ACCESS_SECTIONS).filter(function(x){return x.key===k;})[0];}
+    function fieldHtml(domId,c,cur,addMode){
+      if(c.opts) return '<select id="'+domId+'">'+c.opts.map(function(o){return '<option'+(o===cur?' selected':'')+'>'+esc(o)+'</option>';}).join('')+'</select>';
+      if(c.src){var list=M[c.src]||[];
+        return '<select id="'+domId+'">'+(addMode?'<option value="">'+esc(c.f)+'…</option>':'')+list.map(function(x){
+          var v=x[c.val];var lbl=c.label?x[c.label]:v;return '<option value="'+esc(v)+'"'+(String(v)===String(cur)?' selected':'')+'>'+esc(lbl)+'</option>';}).join('')+'</select>';}
+      return '<input id="'+domId+'" value="'+esc(cur||'')+'"'+(addMode?' placeholder="'+esc(c.f)+'"':'')+'>';
+    }
+    function renderConfig(secKey){
+      var s=sec_(secKey); if(!s)return;
+      var rows=M[s.data]||[];
+      var head='<tr>'+s.cols.map(function(c){return '<th>'+c.f+'</th>';}).join('')+'<th></th></tr>';
+      var body=rows.map(function(r){
+        var idv=s.idField?r[s.idField]:'';
+        var cells=s.cols.map(function(c){
+          if(c.id) return '<td><span style="color:var(--muted)">🔒 '+esc(r[c.f])+'</span></td>';
+          if(s.addonly) return '<td>'+esc(resolveCell(s.key,c.f,r[c.f]))+'</td>';
+          return '<td>'+fieldHtml('e_'+secKey+'_'+esc(idv)+'_'+c.f,c,r[c.f],false)+'</td>';
+        }).join('');
+        var tail;
+        if(s.addonly){
+          var match={}; s.cols.forEach(function(c){match[c.f]=r[c.f];});
+          var enc=encodeURIComponent(JSON.stringify(match));
+          tail='<td><button class="btn sm rv" onclick="revokeRow(\''+secKey+'\',\''+enc+'\')">Revoke</button></td>';
+        } else {
+          tail='<td><button class="btn sm" onclick="saveRow(\''+secKey+'\',\''+esc(idv)+'\')">Save</button></td>';
+        }
+        return '<tr>'+cells+tail+'</tr>';
+      }).join('');
+      var inputs=s.cols.map(function(c){return fieldHtml('add_'+secKey+'_'+c.f,c,'',true);}).join('');
+      var addrow=s.noadd?'':'<div class="addrow">'+inputs+'<button class="btn" onclick="addRow(\''+secKey+'\')">+ Add</button></div>';
+      var hint=s.addonly?'เพิ่มได้ · แสดงเป็นชื่อ (เก็บเป็น ID)':'ID ล็อก 🔒 · แก้ description/dropdown ได้ · กด Save';
+      $('main').innerHTML='<h2>'+esc(s.title)+'</h2><div class="sub">'+hint+'</div>'+
+        '<div class="card"><table><thead>'+head+'</thead><tbody>'+(body||'')+'</tbody></table>'+addrow+'</div>';
+    }
+    function saveRow(secKey,idv){
+      if(BUSY)return;var s=sec_(secKey);var patch={};
+      s.cols.forEach(function(c){if(c.id)return;patch[c.f]=$('e_'+secKey+'_'+idv+'_'+c.f).value;});
+      busyOn('Saving…');
+      api('cpUpdateRow',{table:secKey,idField:s.idField,idValue:idv,patch:patch}).then(function(r){busyOff();if(!r.ok){alert(r.error||r.reason);return;}M=null;loadConfig(secKey);});
+    }
+    function addRow(secKey){
+      if(BUSY)return;var s=sec_(secKey);
+      var row={}; s.cols.forEach(function(c){row[c.f]=$('add_'+secKey+'_'+c.f).value;});
+      var firstKey=s.cols[0].f;
+      if(!row[firstKey]){alert('First field required');return;}
+      busyOn('Adding…');
+      api('cpAddRow',{table:secKey,row:row}).then(function(r){busyOff();if(!r.ok){alert(r.error||r.reason);return;}M=null;loadConfig(secKey);});
+    }
+    function revokeRow(secKey,enc){
+      if(BUSY)return;
+      var match=JSON.parse(decodeURIComponent(enc));
+      if(!confirm('ถอนรายการนี้? (เก็บประวัติไว้ — สามารถเพิ่มกลับได้ภายหลัง)'))return;
+      busyOn('Revoking…');
+      api('cpRevoke',{table:secKey,match:match}).then(function(r){busyOff();
+        if(!r.ok){alert(r.error||r.reason);return;}
+        M=null;loadConfig(secKey);});
+    }
+    boot();
+  </script>
+</body>
+</html>
