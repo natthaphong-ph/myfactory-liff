@@ -133,7 +133,8 @@
   function submitKyc(){var emp=document.getElementById('emp').value.trim();var err=document.getElementById('err');
     if(!emp){err.textContent='กรุณากรอกรหัสพนักงาน';return;}var b=document.getElementById('go');b.disabled=true;b.textContent='กำลังส่ง…';
     api('submitKyc',{empId:emp}).then(function(r){if(r.ok&&r.data&&r.data.ok){lcDel('access');stateMsg('⏳','รออนุมัติ','ส่งคำขอแล้ว รอผู้ดูแลอนุมัติ');}
-      else{b.disabled=false;b.textContent='ส่งเพื่อขออนุมัติ';err.textContent=(r.data&&r.data.reason==='emp_not_found')?'ไม่พบรหัสพนักงาน':((r.data&&r.data.reason)||r.error||'error');}});}
+      else{b.disabled=false;b.textContent='ส่งเพื่อขออนุมัติ';var rs=(r.data&&r.data.reason)||r.error||'error';
+        err.textContent=rs==='emp_not_found'?'ไม่พบรหัสพนักงาน':(rs==='emp_inactive'?'รหัสพนักงานนี้ถูกปิดการใช้งาน':(rs==='emp_taken'?'รหัสพนักงานนี้ถูกผูกกับบัญชี LINE อื่นแล้ว — ติดต่อผู้ดูแล':rs));}});}
 
   boot();
   </script>
