@@ -369,7 +369,7 @@
       if(!row[firstKey]){alert('First field required');return;}
       if((secKey==='userrole'||secKey==='roleperm')&&!confirm('Confirm this grant?'))return;
       busyOn('Adding…');
-      api('cpAddRow',{table:secKey,row:row}).then(function(r){busyOff();if(!r.ok){alert(r.reason==='emp_inactive'?'Employee is not Active — cannot add/restore (set Active on the Employees page first)':(r.error||r.reason));return;}M=null;loadConfig(secKey);});
+      api('cpAddRow',{table:secKey,row:row}).then(function(r){busyOff();if(!r.ok){alert(r.reason==='emp_inactive'?'Employee is not Active — cannot add/restore (set Active on the Employees page first)':(r.reason==='is_home_dept'?'This is already the home department (set in Employees) — pick a different one':(r.error||r.reason)));return;}M=null;loadConfig(secKey);});
     }
     function revokeRow(secKey,enc){
       if(BUSY)return;
