@@ -109,8 +109,13 @@
     var CONFIG_SECTIONS=[
       {key:'dept',title:'Departments',data:'depts',idField:'DeptID',cols:[
         {f:'DeptID',id:true},{f:'DeptName'}]},
-      {key:'emp',title:'Employees',data:'employees',idField:'EmpID',cols:[
+      {key:'emp',title:'Employees',data:'employees',idField:'EmpID',
+        note:'<b>Dept</b> = home department (primary, one only). Extra departments for multi-line supervisors → manage in <b>Employee → Extra Dept</b> below.',
+        cols:[
         {f:'EmpID',id:true},{f:'FullName'},{f:'Dept',src:'depts',val:'DeptID',label:'DeptName'},{f:'Position'},{f:'Status',opts:['active','inactive']}]},
+      {key:'empdept',title:'Employee → Extra Dept',data:'empDepts',idField:null,addonly:true,
+        note:'Grant <b>EXTRA</b> departments to a supervisor who manages multiple lines (in addition to the home dept set in Employees). They can then see &amp; close/edit work in the home dept + these extra depts — without the all-access cross-dept permission. The home dept cannot be added here.',
+        cols:[{f:'EmpID',src:'employees',val:'EmpID',label:'FullName',activeOnly:true},{f:'DeptID',src:'depts',val:'DeptID',label:'DeptName'}]},
       {key:'group',title:'Groups',data:'groups',idField:'GroupID',cols:[
         {f:'GroupID',id:true},{f:'GroupName'},{f:'OwnerDept',src:'depts',val:'DeptID',label:'DeptName'}]},
       {key:'app',title:'Apps',data:'apps',idField:'AppID',
@@ -245,6 +250,8 @@
       if(secKey==='member'&&col==='GroupID')return G[val]||val;
       if(secKey==='member'&&col==='EmpID')return E[val]||val;
       if(secKey==='userrole'&&col==='EmpID')return E[val]||val;
+      if(secKey==='empdept'&&col==='EmpID')return E[val]||val;
+      if(secKey==='empdept'&&col==='DeptID')return D[val]||val;
       if((secKey==='userrole'||secKey==='roleperm')&&col==='RoleID')return R[val]||val;
       if(secKey==='roleperm'&&col==='AppID')return A[val]||val;
       if(secKey==='roleperm'&&col==='PermID')return P[val]||val;
