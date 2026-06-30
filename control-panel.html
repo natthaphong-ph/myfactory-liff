@@ -317,87 +317,53 @@
         addcard+listcard+
         ((secKey==='member'||secKey==='userrole')?restoreCard(secKey):'');
     }
-    /* ---- merged Groups + Members screen: each group is a card with its members inside ---- */
+    /* ---- Groups & Members: 1 person = 1 group. Group master table + flat assignment table ---- */
     function deptOptions(cur){return (M.depts||[]).map(function(d){return '<option value="'+esc(d.DeptID)+'"'+(String(d.DeptID)===String(cur)?' selected':'')+'>'+esc(d.DeptName)+'</option>';}).join('');}
     function renderGroups(){
-      var canG=BOOT.canGrant;
-      var DN=dmap(M.depts,'DeptID','DeptName'), EN=dmap(M.employees,'EmpID','FullName');
+      var canG=BOOT.canGrant, canC=BOOT.canConfig;
       var groups=(M.groups||[]).slice().sort(function(a,b){return String(a.GroupName||a.GroupID).localeCompare(String(b.GroupName||b.GroupID),'th');});
-      var memByG={}; (M.members||[]).forEach(function(m){(memByG[m.GroupID]=memByG[m.GroupID]||[]).push(m);});
-      var activeEmps=(M.employees||[]).filter(function(e){return e.Status==='active';});
-      /* add-new-group card (config only) */
-      var addG='';
-      if(BOOT.canConfig){
-        addG='<div class="card addcard"><div class="cardh">Add new group</div><div class="addrow">'+
+      /* current group(s) per employee — 1:1, but flag leftover duplicates so admin can resolve */
+      var empG={}; (M.members||[]).forEach(function(m){(empG[m.EmpID]=empG[m.EmpID]||[]).push(m.GroupID);});
+      var activeEmps=(M.employees||[]).filter(function(e){return e.Status==='active';})
+        .sort(function(a,b){return String(a.FullName||'').localeCompare(String(b.FullName||''),'th');});
+      /* ---- Groups master: create / rename / set owner dept ---- */
+      var gmaster='';
+      if(canC){
+        var addG='<div class="card addcard"><div class="cardh">Add new group</div><div class="addrow">'+
           fieldHtml('add_group_GroupID',{f:'GroupID'},'',true)+
           fieldHtml('add_group_GroupName',{f:'GroupName'},'',true)+
           fieldHtml('add_group_OwnerDept',{f:'OwnerDept',src:'depts',val:'DeptID',label:'DeptName'},'',true)+
           '<button class="btn" onclick="addRow(\'group\')">+ Add</button></div></div>';
+        var grows=groups.map(function(g){var gid=g.GroupID;
+          return '<tr><td><span style="color:var(--muted)">🔒 '+esc(gid)+'</span></td>'+
+            '<td><input id="e_group_'+esc(gid)+'_GroupName" value="'+esc(g.GroupName||'')+'"></td>'+
+            '<td><select id="e_group_'+esc(gid)+'_OwnerDept">'+deptOptions(g.OwnerDept)+'</select></td>'+
+            '<td><button class="btn sm" onclick="saveRow(\'group\',\''+esc(gid)+'\')">Save</button></td></tr>';
+        }).join('');
+        gmaster=addG+'<div class="card listcard"><div class="listh"><div class="cardh">Groups ('+groups.length+')</div></div>'+
+          '<div class="tablewrap"><table><thead><tr><th>GroupID</th><th>GroupName</th><th>OwnerDept</th><th></th></tr></thead><tbody>'+grows+'</tbody></table></div></div>';
       }
-      /* one card per group */
-      var cards=groups.map(function(g){
-        var gid=g.GroupID;
-        var hd;
-        if(BOOT.canConfig){
-          hd='<span class="gidtag">🔒 '+esc(gid)+'</span>'+
-             '<input id="e_group_'+esc(gid)+'_GroupName" value="'+esc(g.GroupName||'')+'" style="width:170px;display:inline-block">'+
-             '<select id="e_group_'+esc(gid)+'_OwnerDept" style="width:auto;display:inline-block">'+deptOptions(g.OwnerDept)+'</select>'+
-             '<button class="btn sm" onclick="saveRow(\'group\',\''+esc(gid)+'\')">Save</button>';
-        } else {
-          hd='<span class="gidtag">🔒 '+esc(gid)+'</span> <b>'+esc(g.GroupName)+'</b> <span style="color:var(--muted)">· '+esc(DN[g.OwnerDept]||g.OwnerDept||'-')+'</span>';
-        }
-        var mem=memByG[gid]||[];
-        var memRows=mem.length?mem.map(function(m){
-          var ctrl='';
-          if(canG){
-            var selId='mv_member_'+esc(gid)+'_'+esc(m.EmpID);
-            var opts=groups.filter(function(x){return x.GroupID!==gid;}).map(function(x){return '<option value="'+esc(x.GroupID)+'">'+esc(x.GroupName)+'</option>';}).join('');
-            ctrl='<select id="'+selId+'" style="width:auto;display:inline-block;margin-right:6px"><option value="">Move to…</option>'+opts+'</select>'+
-                 '<button class="btn sm" onclick="moveRow(\'member\',\''+esc(m.EmpID)+'\',\''+esc(gid)+'\',\''+selId+'\')">Move</button> '+
-                 '<button class="btn sm rv" onclick="revokeMember(\''+esc(gid)+'\',\''+esc(m.EmpID)+'\')">Revoke</button>';
-          }
-          return '<tr><td>'+esc(EN[m.EmpID]||m.EmpID)+'</td><td style="white-space:nowrap;text-align:right">'+ctrl+'</td></tr>';
-        }).join(''):'<tr><td colspan="2" style="color:var(--muted)">No members yet</td></tr>';
-        var addMem='';
-        if(canG){
-          var addSel='addmem_'+esc(gid);
-          var inG={}; mem.forEach(function(m){inG[m.EmpID]=1;});
-          var eopts=activeEmps.filter(function(e){return !inG[e.EmpID];}).map(function(e){return '<option value="'+esc(e.EmpID)+'">'+esc(e.FullName)+'</option>';}).join('');
-          addMem='<div style="margin-top:8px"><select id="'+addSel+'" style="width:auto;display:inline-block;margin-right:6px"><option value="">+ Add member…</option>'+eopts+'</select>'+
-                 '<button class="btn sm green" onclick="addMember(\''+esc(gid)+'\',\''+addSel+'\')">Add</button></div>';
-        }
-        return '<div class="card groupcard">'+
-          '<div class="grouphd" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">'+hd+'</div>'+
-          '<table class="memtbl"><thead><tr><th>Members ('+mem.length+')</th><th></th></tr></thead><tbody>'+memRows+'</tbody></table>'+
-          addMem+'</div>';
+      /* ---- assignment: one row per active employee -> one group ---- */
+      var arows=activeEmps.map(function(e){
+        var gids=empG[e.EmpID]||[]; var cur=gids[0]||'';
+        var dup=gids.length>1?' <span style="color:var(--amber);font-weight:600;font-size:11px">⚠ in '+gids.length+' groups — pick one</span>':'';
+        var sel='<select id="ag_'+esc(e.EmpID)+'" onchange="setGroup(\''+esc(e.EmpID)+'\')"'+(canG?'':' disabled')+'>'+
+          '<option value="">— none —</option>'+
+          groups.map(function(g){return '<option value="'+esc(g.GroupID)+'"'+(String(g.GroupID)===String(cur)?' selected':'')+'>'+esc(g.GroupName)+'</option>';}).join('')+'</select>';
+        return '<tr><td>'+esc(e.FullName)+'</td><td>'+sel+dup+'</td></tr>';
       }).join('');
-      var note='<div class="note">Each <b>group</b> and its <b>members</b> are managed together here. Edit a group’s name/department then <b>Save</b>; add, move, or revoke members inside each group card.'+(canG?'':' <i>(member editing needs grant permission)</i>')+'</div>';
-      $('main').innerHTML='<h2>Groups &amp; Members</h2><div class="sub">Groups + their members in one place</div>'+note+addG+
-        '<div style="margin:10px 0"><input class="filterbox" placeholder="🔎 Filter groups / members…" oninput="filterGroups(this)" style="max-width:340px"></div>'+
-        (cards||'<div class="empty">No groups yet</div>')+
-        (canG?restoreCard('member'):'');
+      var assign='<div class="card listcard"><div class="listh"><div class="cardh">Member → Group ('+activeEmps.length+')</div>'+
+        '<input class="filterbox" placeholder="🔎 Filter…" oninput="filterTable(this)"></div>'+
+        '<div class="tablewrap"><table><thead><tr><th>Employee</th><th>Group</th></tr></thead><tbody>'+(arows||'<tr><td colspan="2" class="empty">No active employees</td></tr>')+'</tbody></table></div></div>';
+      var note='<div class="note"><b>1 person = 1 group.</b> Pick each person’s group from the dropdown — it saves immediately and removes any previous group. Choose <i>— none —</i> to remove them from all groups.'+(canG?'':' <i>(assigning needs grant permission)</i>')+'</div>';
+      $('main').innerHTML='<h2>Groups &amp; Members</h2><div class="sub">Manage groups, then assign one group per person</div>'+note+gmaster+assign;
     }
-    function filterGroups(inp){
-      var q=inp.value.trim().toLowerCase();
-      document.querySelectorAll('.groupcard').forEach(function(card){
-        var txt=(card.innerText||card.textContent||'').toLowerCase();
-        card.style.display=(!q||txt.indexOf(q)>-1)?'':'none';
-      });
-    }
-    function addMember(gid,selId){
-      if(BUSY)return;var emp=$(selId)?$(selId).value:'';
-      if(!emp){alert('Select an employee first');return;}
-      busyOn('Adding…');
-      api('cpAddRow',{table:'member',row:{GroupID:gid,EmpID:emp}}).then(function(r){busyOff();
-        if(!r.ok){alert(r.reason==='emp_inactive'?'Employee is not Active — set Active on the Employees page first':(r.error||r.reason));return;}
-        M=null;loadConfig('group');});
-    }
-    function revokeMember(gid,emp){
+    function setGroup(emp){
       if(BUSY)return;
-      if(!confirm('Remove this member from the group? (history kept — can be re-added later)'))return;
-      busyOn('Revoking…');
-      api('cpRevoke',{table:'member',match:{GroupID:gid,EmpID:emp}}).then(function(r){busyOff();
-        if(!r.ok){alert(r.error||r.reason);return;}
+      var g=$('ag_'+emp)?$('ag_'+emp).value:'';
+      busyOn('Saving…');
+      api('cpAddRow',{table:'member',row:{GroupID:g,EmpID:emp}}).then(function(r){busyOff();
+        if(!r.ok)alert(r.reason==='emp_inactive'?'Employee is not Active':(r.error||r.reason));
         M=null;loadConfig('group');});
     }
     /* live filter: hide rows whose combined cell text doesn't contain the query */
