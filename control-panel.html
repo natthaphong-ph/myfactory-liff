@@ -117,7 +117,7 @@
         note:'Grant <b>EXTRA</b> departments to a supervisor who manages multiple lines (in addition to the home dept set in Employees). They can then see &amp; close/edit work in the home dept + these extra depts — without the all-access cross-dept permission. The home dept cannot be added here.',
         cols:[{f:'EmpID',src:'employees',val:'EmpID',label:'FullName',activeOnly:true},{f:'DeptID',src:'depts',val:'DeptID',label:'DeptName'}]},
       {key:'group',title:'Groups & Members',data:'groups',idField:'GroupID',cols:[
-        {f:'GroupID',id:true},{f:'GroupName'},{f:'OwnerDept',src:'depts',val:'DeptID',label:'DeptName'}]},
+        {f:'GroupID',id:true},{f:'GroupName'}]},
       {key:'app',title:'Apps',data:'apps',idField:'AppID',
         note:'<b>Icon</b> = a Tabler icon name (e.g. <code>settings</code>, <code>tag</code>, <code>clock-check</code>) or an emoji 📋. Browse &amp; copy the exact name at <a href="https://tabler.io/icons" target="_blank" rel="noopener">tabler.io/icons ↗</a> &nbsp;|&nbsp; <b>AppURL</b> = page filename (e.g. <code>checkin.html</code>) &nbsp;|&nbsp; <b>SortOrder</b> = tile order on Home (lower = first) &nbsp;|&nbsp; <b>Status</b> = on shows the app (still needs a Role → Permission grant to appear).',
         cols:[
@@ -332,21 +332,19 @@
         var addG='<div class="card addcard"><div class="cardh">Add new group</div><div class="addrow">'+
           fieldHtml('add_group_GroupID',{f:'GroupID'},'',true)+
           fieldHtml('add_group_GroupName',{f:'GroupName'},'',true)+
-          fieldHtml('add_group_OwnerDept',{f:'OwnerDept',src:'depts',val:'DeptID',label:'DeptName'},'',true)+
           '<button class="btn" onclick="addRow(\'group\')">+ Add</button></div></div>';
         var grows=groups.map(function(g){var gid=g.GroupID;
           return '<tr><td><span style="color:var(--muted)">🔒 '+esc(gid)+'</span></td>'+
             '<td><input id="e_group_'+esc(gid)+'_GroupName" value="'+esc(g.GroupName||'')+'"></td>'+
-            '<td><select id="e_group_'+esc(gid)+'_OwnerDept">'+deptOptions(g.OwnerDept)+'</select></td>'+
             '<td><button class="btn sm" onclick="saveRow(\'group\',\''+esc(gid)+'\')">Save</button></td></tr>';
         }).join('');
         gmaster=addG+'<div class="card listcard"><div class="listh"><div class="cardh">Groups ('+groups.length+')</div></div>'+
-          '<div class="tablewrap"><table><thead><tr><th>GroupID</th><th>GroupName</th><th>OwnerDept</th><th></th></tr></thead><tbody>'+grows+'</tbody></table></div></div>';
+          '<div class="tablewrap"><table><thead><tr><th>GroupID</th><th>GroupName</th><th></th></tr></thead><tbody>'+grows+'</tbody></table></div></div>';
       }
       /* ---- assignment: one row per active employee -> one group ---- */
       var arows=activeEmps.map(function(e){
         var gids=empG[e.EmpID]||[]; var cur=gids[0]||'';
-        var dup=gids.length>1?' <span style="color:var(--amber);font-weight:600;font-size:11px">⚠ in '+gids.length+' groups — pick one</span>':'';
+        var dup=gids.length>1?' <span style="color:var(--amber);font-weight:600;font-size:11px">⚠ in '+gids.length+' groups</span> <button class="btn sm" onclick="setGroup(\''+esc(e.EmpID)+'\')">Keep selected</button>':'';
         var sel='<select id="ag_'+esc(e.EmpID)+'" onchange="setGroup(\''+esc(e.EmpID)+'\')"'+(canG?'':' disabled')+'>'+
           '<option value="">— none —</option>'+
           groups.map(function(g){return '<option value="'+esc(g.GroupID)+'"'+(String(g.GroupID)===String(cur)?' selected':'')+'>'+esc(g.GroupName)+'</option>';}).join('')+'</select>';
