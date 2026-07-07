@@ -155,8 +155,7 @@
       h+='<h3 class="sec">KAIZEN — improvement activity (by team)</h3>'+
         '<div class="kpis">'+kpi('Total resolved',kz.totalClosed,'green')+kpi('Active groups',kz.activeGroups)+'</div>'+
         '<div class="charts">'+chartBox('Resolved by group','cResolved')+
-        '<div class="card"><h3>Resolution rate by group</h3>'+resolutionTable(kz)+'</div></div>'+
-        '<div class="card"><h3>Before / After — recently closed (click to view)</h3>'+kaizenGallery()+'</div>';
+        '<div class="card"><h3>Resolution rate by group</h3>'+resolutionTable(kz)+'</div></div>';
       $('main').innerHTML=h;
       drawCharts();
     }
