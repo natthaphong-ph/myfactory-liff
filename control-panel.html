@@ -217,11 +217,61 @@
         api('cpBoot').then(function(b){if(b.ok){BOOT=b;lcPut('cpboot',b);renderKyc();}});});}
 
     /* ---- Dashboard & Report (links) ---- */
+    /* ---- System report: live system-health + access overview for admins (computed client-side) ---- */
     function renderReport(){
-      $('main').innerHTML='<h2>System reports</h2><div class="sub">Open reports / dashboards in a new tab</div>'+
-        link(DASH_URL,'Genba & 5S dashboard','KPIs · charts · findings · printable report')+
-        '<div class="linkrow soon"><div class="t"><b>TPM TAG dashboard</b><br><span>Coming soon</span></div></div>'+
-        '<div class="linkrow soon"><div class="t"><b>Check-in dashboard</b><br><span>Coming soon</span></div></div>';
+      if((BOOT.canConfig||BOOT.canGrant)&&!M){
+        busyOn('Loading…');
+        var pM=BOOT.canConfig?api('cpMasters'):Promise.resolve(null);
+        var pA=BOOT.canGrant?api('cpAccess'):Promise.resolve(null);
+        Promise.all([pM,pA]).then(function(res){var m=res[0],a=res[1];
+          if(BOOT.canConfig){M=(m&&m.ok)?m:{};}else{M={};}
+          if(BOOT.canGrant&&a&&a.ok)mergeAccess(a);
+          busyOff();renderReport();});
+        return;
+      }
+      if(!BOOT.canConfig&&!BOOT.canGrant){$('main').innerHTML='<h2>System report</h2><div class="empty">Needs admin (config / grant) access</div>';return;}
+      var emps=M.employees||[],kyc=BOOT.kyc||[],depts=M.depts||[],groups=M.groups||[],members=M.members||[],areas=M.areas||[],roles=M.roles||[],apps=M.apps||[],userRoles=M.userRoles||[],rolePerms=M.rolePerms||[];
+      var EN=dmap(emps,'EmpID','FullName');
+      var active=emps.filter(function(e){return e.Status==='active';}),inactive=emps.filter(function(e){return e.Status==='inactive';});
+      var kycP=kyc.filter(function(k){return k.KycStatus==='pending';}),kycA=kyc.filter(function(k){return k.KycStatus==='active';}),kycR=kyc.filter(function(k){return k.KycStatus==='revoked';});
+      var roleByEmp={};userRoles.forEach(function(u){(roleByEmp[u.EmpID]=roleByEmp[u.EmpID]||[]).push(u.RoleID);});
+      var grpByEmp={};members.forEach(function(m){(grpByEmp[m.EmpID]=grpByEmp[m.EmpID]||[]).push(m.GroupID);});
+      var permByRole={};rolePerms.forEach(function(x){permByRole[x.RoleID]=1;});
+      var grantedApp={};rolePerms.forEach(function(x){grantedApp[x.AppID]=1;});
+      var nmE=function(list){return list.map(function(e){return EN[e.EmpID]||e.EmpID;});};
+      var noRole=nmE(active.filter(function(e){return !roleByEmp[e.EmpID];}));
+      var noGroup=nmE(active.filter(function(e){return !grpByEmp[e.EmpID];}));
+      var multiGroup=Object.keys(grpByEmp).filter(function(id){return grpByEmp[id].length>1;}).map(function(id){return EN[id]||id;});
+      var areasNoDept=areas.filter(function(a){return !a.OwnerDept;}).map(function(a){return a.AreaName||a.AreaID;});
+      var rolesNoPerm=roles.filter(function(r){return !permByRole[r.RoleID];}).map(function(r){return r.RoleName||r.RoleID;});
+      var appsOnUngranted=apps.filter(function(a){return a.Status==='on'&&!grantedApp[a.AppID];}).map(function(a){return a.AppName||a.AppID;});
+      var kycMismatch=kyc.filter(function(k){return k.KycStatus==='active'&&k.EmpStatus==='inactive';}).map(function(k){return k.EmpID;});
+      function kpi(l,v,c){return '<div style="flex:1;min-width:110px;background:var(--surface,#f1f5f9);border-radius:8px;padding:10px 12px"><div style="font-size:11px;color:#64748b">'+esc(l)+'</div><div style="font-size:24px;font-weight:700'+(c?';color:'+c:'')+'">'+v+'</div></div>';}
+      function chk(l,items,help){var n=items.length,ok=n===0,color=ok?'#10B981':'#D97706',lbl=ok?'OK':(n+' to review');
+        var names=n?'<div style="font-size:11px;color:#64748b;margin-top:3px">'+esc(items.slice(0,12).join(', '))+(n>12?' …(+'+(n-12)+' more)':'')+'</div>':'';
+        return '<tr><td>'+esc(l)+'<div style="font-size:11px;color:#94a3b8">'+esc(help)+'</div>'+names+'</td><td style="text-align:right;white-space:nowrap;vertical-align:top"><span style="color:'+color+'">\u25cf</span> '+esc(lbl)+'</td></tr>';}
+      var h='<h2>System report</h2><div class="sub">System health &amp; access overview — computed live from current data</div>';
+      h+='<div class="card"><div style="display:flex;gap:10px;flex-wrap:wrap">'+
+        kpi('Employees active',active.length,'#0D9488')+kpi('Inactive',inactive.length)+
+        kpi('KYC pending',kycP.length,kycP.length?'#D97706':'')+kpi('KYC active',kycA.length)+kpi('KYC revoked',kycR.length)+
+        kpi('Roles',roles.length)+kpi('Apps on',apps.filter(function(a){return a.Status==='on';}).length)+'</div></div>';
+      h+='<div class="card"><div class="cardh">Action needed (health checks)</div><div class="tablewrap"><table><tbody>'+
+        chk('Pending KYC approvals',nmE(kycP),'Users waiting to be approved')+
+        chk('Active employees with no role',noRole,'Cannot use any app until granted a role')+
+        chk('Active employees in no group',noGroup,'Will not receive assigned Genba / TPM work')+
+        chk('Areas with no owner department',areasNoDept,'Hidden from dept-scoped users — set OwnerDept')+
+        chk('Roles with no permission',rolesNoPerm,'Dead roles — grant permissions or remove')+
+        chk('Apps ON but granted to nobody',appsOnUngranted,'Invisible app — grant to a role or turn off')+
+        chk('Employees in more than one group',multiGroup,'Should be 0 (1 person = 1 group)')+
+        chk('KYC active but employee inactive',kycMismatch,'Should be 0 (auto-revoke) — investigate if any')+
+        '</tbody></table></div></div>';
+      var deptCount=function(d){return active.filter(function(e){return e.Dept===d;}).length;};
+      var memCount={};members.forEach(function(m){memCount[m.GroupID]=(memCount[m.GroupID]||0)+1;});
+      h+='<div class="card"><div class="cardh">Departments</div><div class="tablewrap"><table><thead><tr><th>Department</th><th>Active employees</th></tr></thead><tbody>'+
+        depts.map(function(d){return '<tr><td>'+esc(d.DeptName||d.DeptID)+'</td><td>'+deptCount(d.DeptID)+'</td></tr>';}).join('')+'</tbody></table></div></div>';
+      h+='<div class="card"><div class="cardh">Groups</div><div class="tablewrap"><table><thead><tr><th>Group</th><th>Members</th></tr></thead><tbody>'+
+        groups.map(function(g){return '<tr><td>'+esc(g.GroupName||g.GroupID)+'</td><td>'+(memCount[g.GroupID]||0)+'</td></tr>';}).join('')+'</tbody></table></div></div>';
+      $('main').innerHTML=h;
     }
     function link(url,t,d){return '<div class="linkrow" style="cursor:pointer" onclick="location.href=\''+esc(url)+'\'"><div class="t"><b>'+esc(t)+'</b><br><span>'+esc(d)+'</span></div>›</div>';}
 
