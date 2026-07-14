@@ -180,8 +180,8 @@
       '<label>รูป Before (จำเป็น, สูงสุด '+G.maxPhotos+')</label><div class="thumbs" id="thumbs"></div>'+
       '<div class="err" id="err"></div><button class="btn" id="save" onclick="gSave()">Submit finding</button></div>';
     gThumbs();}
-  function gThumbs(){var t=document.getElementById('thumbs');var h='';beforeFiles.forEach(function(f,i){h+='<div class="thumb"><img src="'+f.preview+'"><div class="x" onclick="gRm('+i+')">×</div></div>';});if(beforeFiles.length<G.maxPhotos)h+='<div class="add-photo" onclick="gPick()">+</div>';t.innerHTML=h;}
-  function gPick(){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.onchange=function(){var f=inp.files[0];if(!f)return;var rd=new FileReader();rd.onload=function(e){beforeFiles.push({file:f,preview:e.target.result});gThumbs();};rd.readAsDataURL(f);};inp.click();}
+  function gThumbs(){var t=document.getElementById('thumbs');var h='';beforeFiles.forEach(function(f,i){h+='<div class="thumb"><img src="'+f.preview+'"><div class="x" onclick="gRm('+i+')">×</div></div>';});if(beforeFiles.length<G.maxPhotos)h+='<div class="add-photo" onclick="gPick(1)" title="ถ่ายรูป">📷</div><div class="add-photo" onclick="gPick(0)" title="เลือกไฟล์">📁</div>';t.innerHTML=h;}
+  function gPick(cam){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';if(cam)inp.capture='environment';inp.onchange=function(){var f=inp.files[0];if(!f)return;var rd=new FileReader();rd.onload=function(e){beforeFiles.push({file:f,preview:e.target.result});gThumbs();};rd.readAsDataURL(f);};inp.click();}
   function gRm(i){beforeFiles.splice(i,1);gThumbs();}
   function gSave(){if(BUSY)return;var err=document.getElementById('err');if(!beforeFiles.length){err.textContent='ต้องมีรูป Before อย่างน้อย 1 รูป';return;}
     var b=document.getElementById('save');b.disabled=true;b.textContent='กำลังบันทึก…';busyOn('กำลังบันทึก…');
@@ -236,8 +236,8 @@
     }
     body.innerHTML=h; window._fid=f.findingId; if(donePick)aThumbs();
   }
-  function aThumbs(){var t=document.getElementById('athumbs');if(!t)return;var h='';afterFiles.forEach(function(f,i){h+='<div class="thumb"><img src="'+f.preview+'"><div class="x" onclick="aRm('+i+')">×</div></div>';});if(afterFiles.length<G.maxPhotos)h+='<div class="add-photo" onclick="aPick()">+</div>';t.innerHTML=h;}
-  function aPick(){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.onchange=function(){var f=inp.files[0];if(!f)return;var rd=new FileReader();rd.onload=function(e){afterFiles.push({file:f,preview:e.target.result});aThumbs();};rd.readAsDataURL(f);};inp.click();}
+  function aThumbs(){var t=document.getElementById('athumbs');if(!t)return;var h='';afterFiles.forEach(function(f,i){h+='<div class="thumb"><img src="'+f.preview+'"><div class="x" onclick="aRm('+i+')">×</div></div>';});if(afterFiles.length<G.maxPhotos)h+='<div class="add-photo" onclick="aPick(1)" title="ถ่ายรูป">📷</div><div class="add-photo" onclick="aPick(0)" title="เลือกไฟล์">📁</div>';t.innerHTML=h;}
+  function aPick(cam){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';if(cam)inp.capture='environment';inp.onchange=function(){var f=inp.files[0];if(!f)return;var rd=new FileReader();rd.onload=function(e){afterFiles.push({file:f,preview:e.target.result});aThumbs();};rd.readAsDataURL(f);};inp.click();}
   function aRm(i){afterFiles.splice(i,1);aThumbs();}
   function reasonTh(r){return r==='need_after_photo'?'ต้องมีรูป After อย่างน้อย 1 รูป':(r==='not_done'?'ต้องเป็น Done ก่อนปิด':(r==='wrong_dept'?'อยู่นอกแผนกของคุณ':(r==='not_assigned'?'คุณไม่ใช่ผู้รับมอบหมาย':r)));}
   function gStatus(fid,st){if(BUSY)return;BUSY=true;var b=document.querySelector('.badge');var pT=b?b.textContent:'',pC=b?b.className:'';if(b){b.textContent=st;b.className='badge s-'+st.replace(/\s/g,'');}lcDel('genbaInit');
