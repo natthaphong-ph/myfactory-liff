@@ -247,23 +247,23 @@
       var appsOnUngranted=apps.filter(function(a){return a.Status==='on'&&!grantedApp[a.AppID];}).map(function(a){return a.AppName||a.AppID;});
       var kycMismatch=kyc.filter(function(k){return k.KycStatus==='active'&&k.EmpStatus==='inactive';}).map(function(k){return k.EmpID;});
       function kpi(l,v,c){return '<div style="flex:1;min-width:110px;background:var(--surface,#f1f5f9);border-radius:8px;padding:10px 12px"><div style="font-size:11px;color:#64748b">'+esc(l)+'</div><div style="font-size:24px;font-weight:700'+(c?';color:'+c:'')+'">'+v+'</div></div>';}
-      function chk(l,items,help){var n=items.length,ok=n===0,color=ok?'#10B981':'#D97706',lbl=ok?'OK':(n+' to review');
+      function chk(l,items,help,target){var n=items.length,ok=n===0,color=ok?'#10B981':'#D97706',lbl=ok?'OK':(n+' to review');
         var names=n?'<div style="font-size:11px;color:#64748b;margin-top:3px">'+esc(items.slice(0,12).join(', '))+(n>12?' …(+'+(n-12)+' more)':'')+'</div>':'';
-        return '<tr><td>'+esc(l)+'<div style="font-size:11px;color:#94a3b8">'+esc(help)+'</div>'+names+'</td><td style="text-align:right;white-space:nowrap;vertical-align:top"><span style="color:'+color+'">\u25cf</span> '+esc(lbl)+'</td></tr>';}
+        return '<tr><td>'+esc(l)+'<div style="font-size:11px;color:#94a3b8">'+esc(help)+'</div>'+names+'</td><td style="text-align:right;white-space:nowrap;vertical-align:top"><span style="color:'+color+'">\u25cf</span> '+esc(lbl)+((!ok&&target)?'<br><button class="btn sm" style="margin-top:6px" onclick="show(\''+target+'\')">Fix →</button>':'')+'</td></tr>';}
       var h='<h2>System report</h2><div class="sub">System health &amp; access overview — computed live from current data</div>';
       h+='<div class="card"><div style="display:flex;gap:10px;flex-wrap:wrap">'+
         kpi('Employees active',active.length,'#0D9488')+kpi('Inactive',inactive.length)+
         kpi('KYC pending',kycP.length,kycP.length?'#D97706':'')+kpi('KYC active',kycA.length)+kpi('KYC revoked',kycR.length)+
         kpi('Roles',roles.length)+kpi('Apps on',apps.filter(function(a){return a.Status==='on';}).length)+'</div></div>';
       h+='<div class="card"><div class="cardh">Action needed (health checks)</div><div class="tablewrap"><table><tbody>'+
-        chk('Pending KYC approvals',nmE(kycP),'Users waiting to be approved')+
-        chk('Active employees with no role',noRole,'Cannot use any app until granted a role')+
-        chk('Active employees in no group',noGroup,'Will not receive assigned Genba / TPM work')+
-        chk('Areas with no owner department',areasNoDept,'Hidden from dept-scoped users — set OwnerDept')+
-        chk('Roles with no permission',rolesNoPerm,'Dead roles — grant permissions or remove')+
-        chk('Apps ON but granted to nobody',appsOnUngranted,'Invisible app — grant to a role or turn off')+
-        chk('Employees in more than one group',multiGroup,'Should be 0 (1 person = 1 group)')+
-        chk('KYC active but employee inactive',kycMismatch,'Should be 0 (auto-revoke) — investigate if any')+
+        chk('Pending KYC approvals',nmE(kycP),'Users waiting to be approved','kyc')+
+        chk('Active employees with no role',noRole,'Cannot use any app until granted a role','userrole')+
+        chk('Active employees in no group',noGroup,'Will not receive assigned Genba / TPM work','group')+
+        chk('Areas with no owner department',areasNoDept,'Hidden from dept-scoped users — set OwnerDept','area')+
+        chk('Roles with no permission',rolesNoPerm,'Dead roles — grant permissions or remove','roleperm')+
+        chk('Apps ON but granted to nobody',appsOnUngranted,'Invisible app — grant to a role or turn off','roleperm')+
+        chk('Employees in more than one group',multiGroup,'Should be 0 (1 person = 1 group)','group')+
+        chk('KYC active but employee inactive',kycMismatch,'Should be 0 (auto-revoke) — investigate if any','emp')+
         '</tbody></table></div></div>';
       var deptCount=function(d){return active.filter(function(e){return e.Dept===d;}).length;};
       var memCount={};members.forEach(function(m){memCount[m.GroupID]=(memCount[m.GroupID]||0)+1;});
